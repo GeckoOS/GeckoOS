@@ -4,7 +4,6 @@
 #ifndef KERNEL_H
 #define KERNEL_H
 
-void process_input(char *buffer);
 void _entry();
 
 #endif

@@ -6,9 +6,9 @@
 #define KB_PS2
 
 #include <stdint.h>
-#include "../ports.h"
-#include "../layouts/kb_layouts.h"
 #include <stdbool.h>
+#include "sys/io.h"
+#include "../layouts/kb_layouts.h"
 
 #define PS2_KB_BUFF_SIZE 512
 #define KEYBOARD_DATA_PORT 0x60

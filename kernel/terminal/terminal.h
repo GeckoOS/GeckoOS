@@ -11,7 +11,7 @@ static unsigned char history_entries[HISTORY_SIZE][512];
 
 void putchar(char c, uint8_t COLOR);
 void write(char* data, size_t size, uint8_t COLOR);
-void printf(char* data, uint8_t COLOR);
+void termprint(char* data, uint8_t COLOR);
 
 void vga_scroll(uint8_t color);
 

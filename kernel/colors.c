@@ -3,7 +3,8 @@
 #include "drivers/vga.h"
 #include <stdint.h>
 
-const uint8_t BG_COLOR = VGA_COLOR_BLUE;
-const uint8_t TERM_COLOR = VGA_COLOR_WHITE | BG_COLOR << 4;
-const uint8_t PROMPT_COLOR = VGA_COLOR_LIGHT_GREEN | BG_COLOR << 4;
-const uint8_t BOLD_COLOR = VGA_COLOR_LIGHT_GREY | BG_COLOR << 4;
+// i think these could be macros
+const uint8_t BG_COLOR = VGA_COLOR_BLACK;
+const uint8_t TERM_COLOR = VGA_COLOR_WHITE;
+const uint8_t PROMPT_COLOR = VGA_COLOR_WHITE;
+const uint8_t BOLD_COLOR = VGA_COLOR_WHITE;

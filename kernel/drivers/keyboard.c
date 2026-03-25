@@ -4,7 +4,7 @@
 
 #include "keyboard.h"
 #include "../layouts/kb_layouts.h"
-#include "../ports.h"
+#include "sys/io.h"
 // Layout map by scancodes.
 // Add layout via set_layout()
 char ScASCII[128];

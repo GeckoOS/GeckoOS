@@ -1,5 +1,5 @@
 #include "vga.h"
-#include "../ports.h"
+#include "sys/io.h"
 
 uint8_t TERMINAL_COLOR;
 

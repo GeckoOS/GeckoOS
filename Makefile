@@ -9,17 +9,19 @@ AS = nasm
 LD = ld
 # Truncate (to make the kernel.bin divisible by 512)
 TRUNCATE = truncate
-TRUNC_AMNT = 360448
+TRUNC_ALIGN = 4096 
+
 # Objcopy (to translate elf to bin)
 OBJCOPY = objcopy
 OBJCOPY_ARGS = -O binary
-CC_FLAGS = -m32 -ffreestanding -nostdlib -fno-builtin -fno-stack-protector -g -c
+CC_FLAGS = -m32 -ffreestanding -nostdlib -fno-builtin -fno-stack-protector -g -c -I headers -I kernel
 AS_FLAGS = -f bin
 LD_FLAGS = -m elf_i386 -T linker.ld
-KERNEL_OBJECTS = kernel/kernel.o kernel/ports.o kernel/mem.o
-DRIVER_OBJECTS = kernel/drivers/vga.o kernel/drivers/keyboard.o
-MISC_OBJECTS = kernel/colors.o kernel/terminal/terminal.o kernel/commands.o kernel/layouts/kb_layouts.o \
+KERNEL_OBJECTS = kernel/kernel.o kernel/mem.o kernel/drive.o
+DRIVER_OBJECTS = kernel/drivers/vga.o kernel/drivers/keyboard.o kernel/drivers/drives/ata.o
+MISC_OBJECTS = kernel/colors.o kernel/terminal/terminal.o kernel/layouts/kb_layouts.o \
                kernel/comos/comos_lexer.o kernel/comos/comos_parser.o kernel/comos/comos_interp.o # ADDED
+
 # Builds the final disk image
 all: os.img
 	
@@ -29,42 +31,16 @@ all: os.img
 # Assemble the bootloader
 bootloader/boot.bin: bootloader/boot.s
 	$(AS) $(AS_FLAGS) $< -o $@
-# Added by MorganPG1
-kernel/colors.o: kernel/colors.c
-	$(CC) $(CC_FLAGS) $< -o $@ || $(CC2) $(CC_FLAGS) $< -o $@
-kernel/layouts/kb_layouts.o: kernel/layouts/kb_layouts.c
-	$(CC) $(CC_FLAGS) $< -o $@ || $(CC2) $(CC_FLAGS) $< -o $@
-# Compile drivers
-kernel/drivers/vga.o: kernel/drivers/vga.c
-	$(CC) $(CC_FLAGS) $< -o $@ || $(CC2) $(CC_FLAGS) $< -o $@
-kernel/drivers/keyboard.o:  kernel/drivers/keyboard.c
-	$(CC) $(CC_FLAGS) $< -o $@ || $(CC2) $(CC_FLAGS) $< -o $@
-kernel/ports.o: kernel/ports.c
-	$(CC) $(CC_FLAGS) $< -o $@ || $(CC2) $(CC_FLAGS) $< -o $@
-kernel/mem.o: kernel/mem.c
-	$(CC) $(CC_FLAGS) $< -o $@ || $(CC2) $(CC_FLAGS) $< -o $@
-kernel/terminal/terminal.o: kernel/terminal/terminal.c
-	$(CC) $(CC_FLAGS) $< -o $@ || $(CC2) $(CC_FLAGS) $< -o $@
-# Added by Ember2819
-kernel/commands.o: kernel/commands.c
-	$(CC) $(CC_FLAGS) $< -o $@ || $(CC2) $(CC_FLAGS) $< -o $@
-# End added by Ember2819
-
-kernel/comos/comos_lexer.o: kernel/comos/comos_lexer.c
-	$(CC) $(CC_FLAGS) $< -o $@ || $(CC2) $(CC_FLAGS) $< -o $@
-kernel/comos/comos_parser.o: kernel/comos/comos_parser.c
-	$(CC) $(CC_FLAGS) $< -o $@ || $(CC2) $(CC_FLAGS) $< -o $@
-kernel/comos/comos_interp.o: kernel/comos/comos_interp.c
-	$(CC) $(CC_FLAGS) $< -o $@ || $(CC2) $(CC_FLAGS) $< -o $@
 
 # Link all kernel objects 
 kernel.elf: $(KERNEL_OBJECTS) $(DRIVER_OBJECTS) $(MISC_OBJECTS)
-	$(LD) $(LD_FLAGS) $(KERNEL_OBJECTS) $(DRIVER_OBJECTS) $(MISC_OBJECTS) -o kernel.elf
+	$(LD) $(LD_FLAGS) $(KERNEL_OBJECTS) $(DRIVER_OBJECTS) $(MISC_OBJECTS) -o $@
 kernel.bin: kernel.elf
-	$(OBJCOPY) $(OBJCOPY_ARGS) kernel.elf kernel.bin
-	$(TRUNCATE) -s $(TRUNC_AMNT) kernel.bin
+	$(OBJCOPY) $(OBJCOPY_ARGS) $< $@
 os.img: bootloader/boot.bin kernel.bin
-	cat bootloader/boot.bin kernel.bin > os.img
+	cat bootloader/boot.bin kernel.bin README.md > os.img
+	$(TRUNCATE) -s 1M $@
+	$(TRUNCATE) -s $$(( ( $$(stat -c%s $@) + $(TRUNC_ALIGN) - 1 ) / $(TRUNC_ALIGN) * $(TRUNC_ALIGN) )) $@
 # Launch the image in QEMU
 run: os.img
 	qemu-system-i386 -s -drive format=raw,file=os.img

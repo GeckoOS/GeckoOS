@@ -109,7 +109,7 @@ disk_error:
 	mov	si, NEWLINE		;; Newline
 	call	print
 	
-	hlt				;; Halt the bootloader
+	jmp _start ;; reload?
 
 ; SI - string to display.
 
