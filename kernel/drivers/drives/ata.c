@@ -50,17 +50,16 @@ struct ata_identity_data
 
 };
 
-static ssize_t ata_kdrive_read( struct kdrive_t *this, ssize_t start, ssize_t num_bytes, void *output )
+static ssize_t ata_kdrive_read( struct kdrive_t *this, ssize_t start, ssize_t num_sectors, void *output )
 {	
-	ssize_t num_sectors;
 	ssize_t num_bytes_read;
 	int i;
 	uint16_t *aligned_output = output;
 
-	num_sectors = (num_bytes + 511) / 512;
+	// todo: add make so it is possible to read more than 256 sectors at once
 	if (num_sectors >= 256)
 	{
-		num_sectors = 0;
+		num_sectors = 256;
 		num_bytes_read = ATA_MAX_SECTOR_COUNT * ATA_SECTOR_SIZE;
 
 	}
@@ -74,6 +73,8 @@ static ssize_t ata_kdrive_read( struct kdrive_t *this, ssize_t start, ssize_t nu
 	outb(this->user_data1 + ATA_HIGH, (start>>16) % 0xFF); 
 	outb(this->user_data1 + ATA_SECTOR_COUNT, num_sectors); 
 	outb(this->user_data1 + ATA_STATUS, 0x20);
+
+	// todo: fix this
 	ata_drive_wait_idle(this->user_data1);
 	for ( i = 0; i < num_bytes_read; i++ )
 	{

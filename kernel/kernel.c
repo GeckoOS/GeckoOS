@@ -48,8 +48,8 @@ static void kmain()
 	termprint("Testing drives\n", VGA_COLOR_LIGHT_GREY);
 	drives_init();
 	struct kdrive_t *drive = get_drive(0);
-	char data[512] = "This should not be seen";
-	drive->read(drive, 0, 512, &data);
+	char data[512] = "This should not be seen\n";
+	drive->read(drive, 0, 1, &data);
 	for (int i = 0; i < 512; i++)
 	{
 		putchar(data[i], VGA_COLOR_LIGHT_GREY);

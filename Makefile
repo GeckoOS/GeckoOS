@@ -23,14 +23,12 @@ DRIVER_OBJECTS = kernel/drivers/vga.o kernel/drivers/keyboard.o kernel/drivers/t
 	kernel/drivers/tables/isr/isr_c.o kernel/drivers/tables/isr/isr_s.o kernel/drivers/tables/irq/irq_c.o kernel/drivers/tables/irq/irq_s.o kernel/drivers/tables/timer/timer.o \
 	kernel/drivers/drives/ata.o
 
-kernel/drivers/tables/idt/idt_c.o: kernel/drivers/tables/idt/idt.c
-	$(CC) $(CC_FLAGS) $< -o $@ || $(CC2) $(CC_FLAGS) $< -o $@
 kernel/drivers/tables/isr/isr_c.o: kernel/drivers/tables/isr/isr.c
-	$(CC) $(CC_FLAGS) $< -o $@ || $(CC2) $(CC_FLAGS) $< -o $@
+	$(CC) $(CC_FLAGS) $< -o $@
 kernel/drivers/tables/irq/irq_c.o: kernel/drivers/tables/irq/irq.c
-	$(CC) $(CC_FLAGS) $< -o $@ || $(CC2) $(CC_FLAGS) $< -o $@
+	$(CC) $(CC_FLAGS) $< -o $@
 kernel/drivers/tables/timer/timer.o: kernel/drivers/tables/timer/timer.c
-	$(CC) $(CC_FLAGS) $< -o $@ || $(CC2) $(CC_FLAGS) $< -o $@
+	$(CC) $(CC_FLAGS) $< -o $@
 kernel/drivers/tables/irq/irq_s.o: kernel/drivers/tables/irq/irq.s
 	$(AS) -felf32 $< -o $@
 kernel/drivers/tables/idt/idt_s.o: kernel/drivers/tables/idt/idt.s
