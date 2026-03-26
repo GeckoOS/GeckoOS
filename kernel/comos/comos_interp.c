@@ -25,7 +25,7 @@ static void strcat_s(char* dst, const char* src) {
 }
 
 // Convert integer to decimal string.
-static void int_to_str(int v, char* buf) {
+void int_to_str(int v, char* buf) {
     if (v == 0) { buf[0] = '0'; buf[1] = 0; return; }
     char tmp[32];
     int neg = 0, i = 0;

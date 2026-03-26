@@ -13,5 +13,10 @@ SECTIONS
     
     .rodata : { *(.rodata) }
     .data   : { *(.data)   }
-    .bss    : { *(.bss) *(COMMON) }
+    .bss    : {
+        __bss_start = .;
+        *(.bss)
+        *(COMMON)
+        __bss_end = .;
+    }
 }

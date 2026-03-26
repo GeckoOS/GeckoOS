@@ -67,10 +67,10 @@ static ssize_t ata_kdrive_read( struct kdrive_t *this, ssize_t start, ssize_t nu
 
 
 	outb(this->user_data1 + ATA_DRIVE_SELECT, 
-			(this->user_data2 ? 0xB0 : 0xA0) | 
-			(0b11000000) | 
-			((start>>24))%16 /* those bits 24-28 */
-	    );
+		(this->user_data2 ? 0xB0 : 0xA0) | 
+		(0b11000000) | 
+		((start>>24))%16 /* those bits 24-28 */
+	);
 	outb(this->user_data1 + ATA_LOW, start % 0xFF); 
 	outb(this->user_data1 + ATA_MID, (start>>8) % 0xFF); 
 	outb(this->user_data1 + ATA_HIGH, (start>>16) % 0xFF); 

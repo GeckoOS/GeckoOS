@@ -3,8 +3,6 @@
 
 #include "../drivers/keyboard.h"
 #include "../drivers/vga.h"
-#include <stdint.h>
-
 
 #define HISTORY_SIZE 10
 static unsigned char history_entries[HISTORY_SIZE][512];

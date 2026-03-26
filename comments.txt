@@ -30,3 +30,6 @@ Preserving some comments from the beginning:
 // I use Arch btw (u/Kaleidoscope5841)
 // ^ used to be:(
 // i also use arch btw ;3 (xtn59)
+
+// Am i doing too much? (Pumpkicks)
+// All of my sources are in the osdev page and in https://web.archive.org/web/20200120120430/http://www.jamesmolloy.co.uk/tutorial_html/1.-Environment%20setup.html

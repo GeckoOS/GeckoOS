@@ -1,8 +1,7 @@
 # By Ember2819, google, and random people on the internet.... What are we doing????
 # C compiler
+# Is ccache really required?
 CC = clang
-# Secondary C compiler
-CC2 = gcc
 # Assembler (for boot.s)
 AS = nasm
 # Linker
@@ -27,7 +26,7 @@ all: os.img
 	
 # If no clang detected, use gcc
 %.o: %.c
-	$(CC) $(CC_FLAGS) $< -o $@ || $(CC2) $(CC_FLAGS) $< -o $@
+	$(CC) $(CC_FLAGS) $< -o $@
 # Assemble the bootloader
 bootloader/boot.bin: bootloader/boot.s
 	$(AS) $(AS_FLAGS) $< -o $@
@@ -43,7 +42,7 @@ os.img: bootloader/boot.bin kernel.bin
 	$(TRUNCATE) -s $$(( ( $$(stat -c%s $@) + $(TRUNC_ALIGN) - 1 ) / $(TRUNC_ALIGN) * $(TRUNC_ALIGN) )) $@
 # Launch the image in QEMU
 run: os.img
-	qemu-system-i386 -s -drive format=raw,file=os.img
+	qemu-system-i386 -s -drive format=raw,file=os.img -usb
 clean:
 	rm -f $(KERNEL_OBJECTS) $(DRIVER_OBJECTS) $(MISC_OBJECTS) kernel.elf kernel.bin bootloader/boot.bin
 .PHONY: all run clean

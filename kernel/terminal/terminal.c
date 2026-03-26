@@ -1,5 +1,6 @@
 #include "../drivers/keyboard.h"
 #include "../drivers/vga.h"
+#include "../mem.h"
 #include "terminal.h"
 
 uint16_t terminal_column = 0; 
@@ -50,6 +51,11 @@ void write(char* data, size_t size, uint8_t COLOR) {
 void termprint(char* data, uint8_t COLOR) {
 	for (size_t i = 0; data[i]; i++) {
 		putchar(data[i], COLOR);
+	}
+}
+void print(char* data) {
+	for (size_t i = 0; data[i]; i++) {
+		putchar(data[i], VGA_COLOR_WHITE);
 	}
 }
 

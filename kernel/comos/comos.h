@@ -2,7 +2,7 @@
 #define COMOS_H
 
 // CommunityOS scripting language (.comos)
-// Python-like syntax
+// Python-like syntax (Literally python btw)
 
 #ifdef COMOS_HOSTED
 #include <stdint.h>
@@ -142,5 +142,6 @@ typedef struct {
 void comos_init(ComosState* s);
 
 bool comos_run(ComosState* s, const char* src);
+extern void int_to_str(int v, char* buf);
 
 #endif

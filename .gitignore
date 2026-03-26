@@ -2,3 +2,4 @@
 *.img
 *.bin
 *.elf
+.vscode
