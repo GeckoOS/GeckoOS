@@ -64,8 +64,6 @@ static ssize_t ata_kdrive_read( struct kdrive_t *this, ssize_t start, ssize_t nu
 		num_bytes_read = ATA_MAX_SECTOR_COUNT * ATA_SECTOR_SIZE;
 
 	}
-
-
 	outb(this->user_data1 + ATA_DRIVE_SELECT, 
 		(this->user_data2 ? 0xB0 : 0xA0) | 
 		(0b11000000) | 

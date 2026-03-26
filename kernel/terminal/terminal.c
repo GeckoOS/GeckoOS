@@ -2,6 +2,8 @@
 #include "../drivers/vga.h"
 #include "../mem.h"
 #include "terminal.h"
+#include "../comos/comos.h"
+#include <stdint.h>
 
 uint16_t terminal_column = 0; 
 uint16_t terminal_row = 0;
@@ -57,6 +59,11 @@ void print(char* data) {
 	for (size_t i = 0; data[i]; i++) {
 		putchar(data[i], VGA_COLOR_WHITE);
 	}
+}
+void print_int(int n) {
+    char buff[32];
+    int_to_str(n, buff);
+    print(buff);
 }
 
 // Ember2819: Add a scroll so if the screen fills you can scroll down
@@ -158,7 +165,7 @@ void input(unsigned char* buff, size_t buffer_size, uint8_t color) {
             buff[buff_count] = '\0';
             continue;
         }
-        unsigned char ascii = scancode_to_ascii(sc);
+        unsigned char ascii = LAYOUTS[0].lower[sc];
     
         // Exit input if enter is pressed
         if (ascii == '\n') break;
@@ -198,4 +205,44 @@ void input(unsigned char* buff, size_t buffer_size, uint8_t color) {
 
     // Ember2819: arrow recall
     history_push(buff);
+}
+void print_hex(uint32_t n)
+{
+    int32_t tmp;
+
+    print("0x");
+
+    char noZeroes = 1;
+
+    int i;
+    for (i = 28; i > 0; i -= 4)
+    {
+        tmp = (n >> i) & 0xF;
+        if (tmp == 0 && noZeroes != 0)
+        {
+            continue;
+        }
+    
+        if (tmp >= 0xA)
+        {
+            noZeroes = 0;
+            putchar (tmp-0xA+'a', VGA_COLOR_WHITE);
+        }
+        else
+        {
+            noZeroes = 0;
+            putchar( tmp+'0', VGA_COLOR_WHITE);
+        }
+    }
+  
+    tmp = n & 0xF;
+    if (tmp >= 0xA)
+    {
+        putchar (tmp-0xA+'a', VGA_COLOR_WHITE);
+    }
+    else
+    {
+        putchar( tmp+'0', VGA_COLOR_WHITE);
+    }
+
 }

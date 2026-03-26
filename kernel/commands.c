@@ -1,11 +1,13 @@
 #include "commands.h"
+#include "bootoptions.h"
 #include "colors.h"
 #include "drivers/keyboard.h"
-#include "drivers/vga.h"
+#include "drivers/tables/timer/timer.h"
 #include "layouts/kb_layouts.h"
 #include "terminal/terminal.h"
 #include "comos/comos.h"
 #include "mem.h"
+#include <stdint.h>
 
 
 // The command table
@@ -20,6 +22,9 @@ static Command commands[] = {
     { "version", cmd_version },
     { "chars", cmd_chars },
     { "comos", cmd_comos },
+    { "sleep", cmd_sleep5 },
+    { "reboot", cmd_reboot },
+    { "ticks", cmd_print_ticks },
 };
 
 static int num_commands = sizeof(commands) / sizeof(commands[0]);
@@ -37,9 +42,9 @@ static void cmd_help(uint8_t color) {
     printf("version - Show the current version of the operating system\n", color); // TheOtterMonarch - Output version of the OS
     printf("chars - Print the available characters\n", color);
     printf("comos - Run the .comos scripting language\n", color);
-    //printf("init_tables - Inits descriptor tables\n", color); // Pumpkicks - Inits the descriptor tables
-    //printf("send_intr - Sends an interruption\n", color); // Pumpkicks - Sends the interruption 0x3
-    //printf("start_timer - Starts a timer within 50Hz of velocity\n", color); // Pumpkicks - Starts the timer
+    printf("sleep - Sleeps for 5 seconds (Finally the timer works!)\n", color); // Pumpkicks - yes
+    printf("reboot - Reboots the machine\n", color); // Pumpkicks - reboots
+    printf("ticks - Prints the timer tick\n", color); // Pumpkicks - show timer ticks
 }
 
 static void cmd_hello(uint8_t color) {
@@ -106,6 +111,20 @@ static void cmd_chars(uint8_t color) {
         }
     }
     printf("\n", color);
+}
+static void cmd_sleep5(uint8_t color) {
+    print("\nSleeping for 5 seconds...\n");
+    sleep(5);
+    print("Done!\n");
+}
+static void cmd_reboot(uint8_t color) {
+    print("\nRebooting...");
+    reboot();
+}
+static void cmd_print_ticks(uint8_t color) {
+    print("\nTick: ");
+    print_int(get_tick());
+    print("\n");
 }
 
 //Ember2819,COMOS language 
