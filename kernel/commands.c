@@ -175,7 +175,7 @@ static void cmd_fsmount(uint8_t color) {
 }
 
 static void cmd_ls(uint8_t color) {
-    (void)color;
+    // (void)color; // Why?
     fat16_list_root();
 }
 

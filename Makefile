@@ -101,10 +101,12 @@ os.img: bootloader/boot.bin kernel.bin
 	cat bootloader/boot.bin kernel.bin > os.img
 # Launch the image in QEMU
 run: os.img
-	qemu-system-i386 -s -drive format=raw,file=os.img -usb
+	qemu-system-i386 -s -drive format=raw,file=os.img
 
-fat16.img:
-	dd if=/dev/zero of=fat16.img bs=512 count=8192
+# I was testing something with the "-usb" parameter in the QEMU command, it was something related to the keyboard problem
+
+fat16.img: # dd if=/dev/zero of=fat16.img bs=1M count=8192
+	dd if=/dev/zero of=fat16.img bs=1M count=10
 	mkfs.fat -F 16 -n "GECKOOS" fat16.img
 	@echo "fat16.img created. Copy files onto it with:"
 	@echo "  mcopy -i fat16.img yourfile.txt ::yourfile.txt"
@@ -112,8 +114,7 @@ fat16.img:
 run-fat16: os.img fat16.img
 	qemu-system-i386 -s \
 	  -drive format=raw,file=os.img \
-	  -drive format=raw,file=fat16.img \
-	  -usb
+	  -drive format=raw,file=fat16.img
 clean:
 	rm -f $(KERNEL_OBJECTS) $(DRIVER_OBJECTS) $(MISC_OBJECTS) $(FS_OBJECTS) kernel.elf kernel.bin bootloader/boot.bin
 	rm -f fat16.img

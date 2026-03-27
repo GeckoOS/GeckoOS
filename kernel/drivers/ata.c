@@ -17,8 +17,7 @@ static int ata_poll_bsy(void) {
     uint32_t timeout = 100000;
     while (timeout--) {
         uint8_t status = inb(ATA_PRIMARY_BASE + ATA_REG_STATUS);
-        if (status & ATA_SR_ERR)   return -1;
-        if (!(status & ATA_SR_BSY)) return 0;
+        return !(status & ATA_SR_BSY) ? 0 : -1;
     }
     return -1;
 }

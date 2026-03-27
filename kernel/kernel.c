@@ -41,7 +41,7 @@ void _entry() {
     printf("Testing interruption...\n", VGA_COLOR_LIGHT_GREY);
     asm volatile("int $0x3");
     printf("Test completed!\n", VGA_COLOR_LIGHT_GREY);
-    initialise_paging(); // Crashes
+    // initialise_paging(); // Crashes
     kmain(); // _entry will be the initialization
 }
 
