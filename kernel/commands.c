@@ -99,10 +99,14 @@ static void cmd_version(uint8_t color) {
 }
 
 static void cmd_chars(uint8_t color) {
-    printf("\n\n", color);
-    for (int i = 0; i < 256; i++) {
-        char c = i;
-        putchar(c, color);
+    printf("\n\n  ", color);
+    for (int i = 1; i < 256; i++) {
+        if (i == 9 || i == 10) {
+            printf(" ", color);
+        } else {
+            char c = i;
+            putchar(c, color);
+        }
         printf(" ", color);
         if ((i+1)%16 == 0) {
             printf("\n", color);
