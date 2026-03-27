@@ -17,6 +17,6 @@ SECTIONS
         __bss_start = .;
         *(.bss)
         *(COMMON)
-        __bss_end = .;
     }
+    end = .; _end = .; __end = .;
 }

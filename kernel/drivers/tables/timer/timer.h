@@ -11,6 +11,8 @@ int get_tick();
 extern int actual_hz;
 
 #define ticks_to_seconds(x) (actual_hz * x)
+#define ticks_to_ms(x) (actual_hz * x) / 10 // Idk if it works, just a random formula
 #define sleep(x) timer_wait(ticks_to_seconds(x))
+#define sleepms(x) timer_wait(ticks_to_ms(x))
 
 #endif

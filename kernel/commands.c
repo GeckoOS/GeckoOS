@@ -25,6 +25,7 @@ static Command commands[] = {
     { "sleep", cmd_sleep5 },
     { "reboot", cmd_reboot },
     { "ticks", cmd_print_ticks },
+    { "qoff", cmd_qoff },
 };
 
 static int num_commands = sizeof(commands) / sizeof(commands[0]);
@@ -44,6 +45,7 @@ static void cmd_help(uint8_t color) {
     printf("comos - Run the .comos scripting language\n", color);
     printf("sleep - Sleeps for 5 seconds (Finally the timer works!)\n", color); // Pumpkicks - yes
     printf("reboot - Reboots the machine\n", color); // Pumpkicks - reboots
+    printf("qoff - Poweroff the QEMU emulator\n", color); // Pumpkicks - yes
     printf("ticks - Prints the timer tick\n", color); // Pumpkicks - show timer ticks
 }
 
@@ -121,6 +123,10 @@ static void cmd_print_ticks(uint8_t color) {
     print("\nTick: ");
     print_int(get_tick());
     print("\n");
+}
+static void cmd_qoff(uint8_t color) {
+    // QEMU2_0_poweroff(); If you QEMU is older than 2.0, this will work
+    QEMU_poweroff(); // If you QEMU is newer than 2.0, this will not work
 }
 
 //Ember2819,COMOS language 

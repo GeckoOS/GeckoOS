@@ -25,7 +25,6 @@ void* memset(void* dest, int val, unsigned long n) {
 }
 // [Ember2819: END]
 
-// Pumpkicks
 int strlen(char* ptr) {
     int i = 0;
     while (ptr[i]) i++;
@@ -33,15 +32,58 @@ int strlen(char* ptr) {
 }
 
 //replace with real allocator later but should be fine for now
-extern unsigned char __bss_start;
-extern unsigned char __bss_end;
+static unsigned char heap[65536];
 static unsigned long heap_ptr = 0;
 
 void* malloc(unsigned long size) {
-    if ((heap_ptr + size) > __bss_end) {
+    if (heap_ptr + size > sizeof(heap)) {
         return 0;
     }
-    void* p = (void*)(&__bss_start)[heap_ptr];
+    void* p = &heap[heap_ptr];
     heap_ptr += size;
     return p;
+}
+
+extern uint32_t end;
+uint32_t placement_address = (uint32_t)&end; // Clangd mark this as an error
+
+uint32_t kmalloc_int(uint32_t sz, int align, uint32_t *phys)
+{
+    // This will eventually call malloc() on the kernel heap.
+    // For now, though, we just assign memory at placement_address
+    // and increment it by sz. Even when we've coded our kernel
+    // heap, this will be useful for use before the heap is initialised.
+    if (align == 1 && (placement_address & 0xFFFFF000) )
+    {
+        // Align the placement address;
+        placement_address &= 0xFFFFF000;
+        placement_address += 0x1000;
+    }
+    if (phys)
+    {
+        *phys = placement_address;
+    }
+    uint32_t tmp = placement_address;
+    placement_address += sz;
+    return tmp;
+}
+
+uint32_t kmalloc_a(uint32_t sz)
+{
+    return kmalloc_int(sz, 1, 0);
+}
+
+uint32_t kmalloc_p(uint32_t sz, uint32_t *phys)
+{
+    return kmalloc_int(sz, 0, phys);
+}
+
+uint32_t kmalloc_ap(uint32_t sz, uint32_t *phys)
+{
+    return kmalloc_int(sz, 1, phys);
+}
+
+uint32_t kmalloc(uint32_t sz)
+{
+    return kmalloc_int(sz, 0, 0);
 }

@@ -6,6 +6,8 @@
 #include "drivers/vga.h"
 #include "drivers/keyboard.h"
 #include "layouts/kb_layouts.h"
+#include "mem.h"
+#include "paging/paging.h"
 #include "terminal/terminal.h"
 #include "commands.h" // Included by Ember2819: Adds commands
 #include "colors.h" // Added by MorganPG1 to centralise colors into one file
@@ -39,6 +41,7 @@ void _entry() {
     printf("Testing interruption...\n", VGA_COLOR_LIGHT_GREY);
     asm volatile("int $0x3");
     printf("Test completed!\n", VGA_COLOR_LIGHT_GREY);
+    initialise_paging(); // Crashes
     kmain(); // _entry will be the initialization
 }
 
