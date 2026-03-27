@@ -114,7 +114,7 @@ int fat16_mount(int drive, uint32_t partition_lba) {
 
 void fat16_list_root(void) {
     if (!vol.mounted) {
-        printf("[FAT16] Not mounted.\n", VGA_COLOR_RED);
+        printf("\n[FAT16] Not mounted.\n", VGA_COLOR_RED);
         return;
     }
 

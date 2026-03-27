@@ -13,6 +13,7 @@ void printf(char* data, uint8_t COLOR);
 /* printf without the color parameter (white default) */ void print(char* data);
 void print_int(int n);
 void print_hex(uint32_t n);
+int atoi(char* buffer);
 
 void vga_scroll(uint8_t color);
 
@@ -20,6 +21,6 @@ void vga_scroll(uint8_t color);
 void terminal_clear(uint8_t color);
 static void history_push(unsigned char* buf);
 
-void input(unsigned char* buff, size_t buffer_size, uint8_t color);
+void input(unsigned char* buff, size_t buffer_size, uint8_t color, int save);
 
 #endif

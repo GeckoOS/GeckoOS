@@ -3,6 +3,7 @@
 #include "colors.h"
 #include "drivers/keyboard.h"
 #include "drivers/tables/timer/timer.h"
+#include "drivers/vga.h"
 #include "layouts/kb_layouts.h"
 #include "terminal/terminal.h"
 #include "comos/comos.h"
@@ -32,6 +33,7 @@ static Command commands[] = {
     { "cat",       cmd_cat       },  // Print a file's contents
     { "fsinfo",    cmd_fsinfo    },  // Show filesystem info (mostly for debugging)
     { "qoff", cmd_qoff },
+    { "malloc", cmd_malloc }, // Allocate
 };
 
 static int num_commands = sizeof(commands) / sizeof(commands[0]);
@@ -183,7 +185,7 @@ static void cmd_cat(uint8_t color) {
     printf("\nEnter filename: ", color);
 
     unsigned char fname[32];
-    input(fname, 32, color);
+    input(fname, 32, color, 0);
     printf("\n", color);
 
     FAT16_File f;
@@ -241,6 +243,20 @@ static void cmd_comos(uint8_t color) {
 
     comos_init(&comos_state);
     comos_run(&comos_state, demo);
+}
+static void cmd_malloc(uint8_t color) {
+    print("\nsize?: ");
+    unsigned char buff[10];
+    input(buff, 10, VGA_COLOR_WHITE, 0);
+    int size = atoi(buff);
+
+    char* bytes = kmalloc(size);
+
+    print("\nallocated ");
+    print_int(size);
+    print(" bytes at ");
+    print_hex((uint32_t)bytes);
+    putchar('\n', VGA_COLOR_BLACK);
 }
 
 // ---- dispatcher ----

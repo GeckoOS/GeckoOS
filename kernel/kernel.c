@@ -57,7 +57,7 @@ static void kmain()
         //Obtains and processes the user input
 
         unsigned char buff[512];
-        input(buff, 512, TERM_COLOR);
+        input(buff, 512, TERM_COLOR, 1);
         process_input(buff);
     }
 

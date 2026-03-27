@@ -98,7 +98,7 @@ static void history_push(unsigned char* buf) {
 }
 
 
-void input(unsigned char* buff, size_t buffer_size, uint8_t color) {
+void input(unsigned char* buff, size_t buffer_size, uint8_t color, int save /* decide if save in history */) {
     size_t buff_count = 0; //Initialise the buffer count
     size_t start_x = terminal_column;
     size_t start_y = terminal_row;
@@ -204,7 +204,7 @@ void input(unsigned char* buff, size_t buffer_size, uint8_t color) {
     buff[buff_count] = '\0';
 
     // Ember2819: arrow recall
-    history_push(buff);
+    if (save) history_push(buff);
 }
 void print_hex(uint32_t n)
 {
@@ -245,4 +245,16 @@ void print_hex(uint32_t n)
         putchar( tmp+'0', VGA_COLOR_WHITE);
     }
 
+}
+int atoi(char* buffer) {
+    int n = 0;
+    int isneg = 0;
+    for (int i = 0; i < strlen(buffer); i++) {
+        if (buffer[i] >= 0x30 && buffer[i] <= 0x39) {
+            n *= 10;
+            n += buffer[i] - 0x30;
+        }
+        if (buffer[i] == 0x2d) isneg = 1;
+    }
+    return isneg ? -n : n;
 }

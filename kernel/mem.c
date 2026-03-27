@@ -1,3 +1,5 @@
+#include "terminal/terminal.h"
+#include <stddef.h>
 #include <stdint.h>
 void* memcpy(void* dest, const void* src, unsigned long n) {
     // n = Number of bytes
@@ -45,7 +47,11 @@ void* malloc(unsigned long size) {
 extern uint32_t end;
 uint32_t placement_address = (uint32_t)&end; // Clangd mark this as an error
 
-uint32_t kmalloc_int(uint32_t sz, int align, uint32_t *phys)
+typedef struct block {
+    size_t size;
+} block;
+
+void* kmalloc_int(uint32_t sz, int align, uint32_t *phys)
 {
     // This will eventually call malloc() on the kernel heap.
     // For now, though, we just assign memory at placement_address
@@ -61,27 +67,32 @@ uint32_t kmalloc_int(uint32_t sz, int align, uint32_t *phys)
     {
         *phys = placement_address;
     }
-    uint32_t tmp = placement_address;
+    block* tmp = (block*)placement_address;
+    tmp->size = sz;
     placement_address += sz;
     return tmp;
 }
-
-uint32_t kmalloc_a(uint32_t sz)
+void kfree(void* ptr) {
+    if (!ptr) return;
+    placement_address -= ((block*)ptr)->size;
+    memset((void*)placement_address, 0, ((block*)ptr)->size);
+}
+void* kmalloc_a(uint32_t sz)
 {
     return kmalloc_int(sz, 1, 0);
 }
 
-uint32_t kmalloc_p(uint32_t sz, uint32_t *phys)
+void* kmalloc_p(uint32_t sz, uint32_t *phys)
 {
     return kmalloc_int(sz, 0, phys);
 }
 
-uint32_t kmalloc_ap(uint32_t sz, uint32_t *phys)
+void* kmalloc_ap(uint32_t sz, uint32_t *phys)
 {
     return kmalloc_int(sz, 1, phys);
 }
 
-uint32_t kmalloc(uint32_t sz)
+void* kmalloc(uint32_t sz)
 {
     return kmalloc_int(sz, 0, 0);
 }

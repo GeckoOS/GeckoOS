@@ -23,25 +23,28 @@ boot_1:
 
 	mov	si, PROMPT_MSG		;; Prompt the user
 	call	print
+    jmp al_1
 
-disk_prompt:
-	call	wfinput			;; Wait for input
+;; We already know what we want
 
-process_prompt:
+; disk_prompt:
+	; call	wfinput			;; Wait for input
+
+;;process_prompt:
 	;; Display the character
-	mov	ah, 0xE			
-	int	0x10
-
-
-	cmp	al, '1'			;; This drive
-	je	al_1
-	cmp	al, '2'			;; Next drive
-	je	al_2
-	cmp	al, '3'			;; 0x80
-	je	al_3
+;	mov	ah, 0xE			
+;	int	0x10
+;
+;
+;	cmp	al, '1'			;; This drive
+;	je	al_1
+;	cmp	al, '2'			;; Next drive
+;	je	al_2
+;	cmp	al, '3'			;; 0x80
+;	je	al_3
 	
 	;; If neither of the inputs is defined behaviour, do the prompt again.
-	jmp	disk_prompt
+;	jmp	disk_prompt
 
 al_1:
 	mov	dl, [BOOT_DRIVE]	;; DL = BOOT_DRIVE
