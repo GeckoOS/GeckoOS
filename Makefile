@@ -22,6 +22,9 @@ DRIVER_OBJECTS = kernel/drivers/vga.o kernel/drivers/keyboard.o kernel/drivers/t
 	kernel/drivers/tables/timer/timer.o kernel/drivers/panic.o
 MISC_OBJECTS = kernel/colors.o kernel/terminal/terminal.o kernel/commands.o kernel/layouts/kb_layouts.o \
                kernel/comos/comos_lexer.o kernel/comos/comos_parser.o kernel/comos/comos_interp.o kernel/paging/paging.o # ADDED
+# Ember2819
+FS_OBJECTS = kernel/drivers/ata.o kernel/fs/fat16.o
+
 # Builds the final disk image
 all: os.img
 	
@@ -81,9 +84,16 @@ kernel/comos/comos_parser.o: kernel/comos/comos_parser.c
 kernel/comos/comos_interp.o: kernel/comos/comos_interp.c
 	$(CC) $(CC_FLAGS) $< -o $@ || $(CC2) $(CC_FLAGS) $< -o $@
 
+# [Ember2819: BEGIN - FAT16 + ATA compile rules]
+kernel/drivers/ata.o: kernel/drivers/ata.c
+	$(CC) $(CC_FLAGS) $< -o $@ || $(CC2) $(CC_FLAGS) $< -o $@
+kernel/fs/fat16.o: kernel/fs/fat16.c
+	$(CC) $(CC_FLAGS) $< -o $@ || $(CC2) $(CC_FLAGS) $< -o $@
+# [Ember2819: END]
+
 # Link all kernel objects 
-kernel.elf: $(KERNEL_OBJECTS) $(DRIVER_OBJECTS) $(MISC_OBJECTS)
-	$(LD) $(LD_FLAGS) $(KERNEL_OBJECTS) $(DRIVER_OBJECTS) $(MISC_OBJECTS) -o kernel.elf
+kernel.elf: $(KERNEL_OBJECTS) $(DRIVER_OBJECTS) $(MISC_OBJECTS) $(FS_OBJECTS)
+	$(LD) $(LD_FLAGS) $(KERNEL_OBJECTS) $(DRIVER_OBJECTS) $(MISC_OBJECTS) $(FS_OBJECTS) -o kernel.elf
 kernel.bin: kernel.elf
 	$(OBJCOPY) $(OBJCOPY_ARGS) kernel.elf kernel.bin
 	$(TRUNCATE) -s $(TRUNC_AMNT) kernel.bin
@@ -92,6 +102,19 @@ os.img: bootloader/boot.bin kernel.bin
 # Launch the image in QEMU
 run: os.img
 	qemu-system-i386 -s -drive format=raw,file=os.img -usb
+
+fat16.img:
+	dd if=/dev/zero of=fat16.img bs=512 count=8192
+	mkfs.fat -F 16 -n "GECKOOS" fat16.img
+	@echo "fat16.img created. Copy files onto it with:"
+	@echo "  mcopy -i fat16.img yourfile.txt ::yourfile.txt"
+
+run-fat16: os.img fat16.img
+	qemu-system-i386 -s \
+	  -drive format=raw,file=os.img \
+	  -drive format=raw,file=fat16.img \
+	  -usb
 clean:
-	rm -f $(KERNEL_OBJECTS) $(DRIVER_OBJECTS) $(MISC_OBJECTS) kernel.elf kernel.bin bootloader/boot.bin
-.PHONY: all run clean
+	rm -f $(KERNEL_OBJECTS) $(DRIVER_OBJECTS) $(MISC_OBJECTS) $(FS_OBJECTS) kernel.elf kernel.bin bootloader/boot.bin
+	rm -f fat16.img
+.PHONY: all run run-fat16 clean
