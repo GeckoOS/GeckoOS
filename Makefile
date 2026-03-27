@@ -50,8 +50,6 @@ kernel/drivers/tables/irq/irq_s.o: kernel/drivers/tables/irq/irq.s
 	$(AS) -felf32 $< -o $@
 kernel/drivers/tables/idt/idt_s.o: kernel/drivers/tables/idt/idt.s
 	$(AS) -felf32 $< -o $@
-kernel/drivers/tables/irq/irq_s.o: kernel/drivers/tables/irq/irq.s
-	$(AS) -felf32 $< -o $@
 kernel/drivers/tables/isr/isr_s.o: kernel/drivers/tables/isr/isr.s
 	$(AS) -felf32 $< -o $@
 # Paging & Panic

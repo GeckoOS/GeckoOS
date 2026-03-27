@@ -80,7 +80,7 @@ void alloc_frame(page_t *page, int is_kernel, int is_writeable)
         if (idx == (uint32_t)-1)
         {
             // PANIC is just a macro that prints a message to the screen then hits an infinite loop.
-            PANIC("No free frames!");
+            PANIC("No free frames!", __LINE__);
         }
         set_frame(idx*0x1000); // this frame is now ours!
         page->present = 1; // Mark it as present.
@@ -134,7 +134,7 @@ void initialise_paging()
         i += 0x1000;
     }
     // Before we enable paging, we must register our page fault handler.
-    irq_install(14, page_fault);
+    irq_install_handler(14, page_fault);
 
     // Now, enable paging!
     switch_page_directory(kernel_directory);
@@ -147,8 +147,7 @@ void switch_page_directory(page_directory_t *dir)
     uint32_t cr0;
     asm volatile("mov %%cr0, %0": "=r"(cr0));
     cr0 |= 0x80000000; // Enable paging!
-    print_hex(cr0);
-    // while (1);
+    PANIC("If this panic command is not present, a failure will occur.", __LINE__); // Just preventing the crash
     asm volatile("mov %0, %%cr0":: "r"(cr0)); // This is why it crashes.
 }
 
@@ -175,7 +174,7 @@ page_t *get_page(uint32_t address, int make, page_directory_t *dir)
         return 0;
     }
 } 
-void page_fault(registers_t regs)
+void page_fault(registers_t* regs)
 {
     // A page fault has occurred.
     // The faulting address is stored in the CR2 register.
@@ -183,11 +182,11 @@ void page_fault(registers_t regs)
     asm volatile("mov %%cr2, %0" : "=r" (faulting_address));
 
     // The error code gives us details of what happened.
-    int present   = !(regs.err_code & 0x1); // Page not present
-    int rw = regs.err_code & 0x2;           // Write operation?
-    int us = regs.err_code & 0x4;           // Processor was in user-mode?
-    int reserved = regs.err_code & 0x8;     // Overwritten CPU-reserved bits of page entry?
-    int id = regs.err_code & 0x10;          // Caused by an instruction fetch?
+    int present   = !(regs->err_code & 0x1); // Page not present
+    int rw = regs->err_code & 0x2;           // Write operation?
+    int us = regs->err_code & 0x4;           // Processor was in user-mode?
+    int reserved = regs->err_code & 0x8;     // Overwritten CPU-reserved bits of page entry?
+    int id = regs->err_code & 0x10;          // Caused by an instruction fetch?
 
     // Output an error message.
     print("Page fault! ( ");
@@ -198,5 +197,5 @@ void page_fault(registers_t regs)
     print(") at 0x");
     print_hex(faulting_address);
     print("\n");
-    PANIC("Page fault");
+    PANIC("Page fault", __LINE__);
 } 
