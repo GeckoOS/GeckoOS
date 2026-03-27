@@ -8,23 +8,27 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout repo
-      uses: actions/checkout@v4
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
-    - name: Install dependencies
-      run: |
-        sudo apt update
-        sudo apt install -y nasm gcc make binutils
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y nasm gcc make binutils mtools dosfstools
 
-    - name: Build OS
-      run: |
-        make
-        ls -la
+      - name: Build OS
+        run: make
 
-    - name: Upload IMG
-      uses: actions/upload-artifact@v4
-      with:
-        name: os-image
-        path: "*.img"
+      - name: Create FAT16 disk image
+        run: |
+          dd if=/dev/zero of=fat16.img bs=512 count=65536
+          mkfs.fat -F 16 -n "GECKOOS" fat16.img
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: os-images
+          path: |
+            os.img
+            fat16.img
