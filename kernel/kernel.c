@@ -40,7 +40,7 @@ void _entry() {
     timer_phase(50);
     printf("Testing interruption...\n", VGA_COLOR_LIGHT_GREY);
     asm volatile("int $0x3");
-    printf("Test completed!\n", VGA_COLOR_LIGHT_GREY);
+    printf("Test completed!\n", VGA_COLOR_GREEN);
     // initialise_paging(); // Crashes
     kmain(); // _entry will be the initialization
 }
@@ -55,6 +55,7 @@ static void kmain()
         printf("> ", PROMPT_COLOR);
         
         //Obtains and processes the user input
+        // register int eax asm("eax");
 
         unsigned char buff[512];
         input(buff, 512, TERM_COLOR, 1);

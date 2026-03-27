@@ -19,6 +19,5 @@ void* kmalloc_a(uint32_t sz);
 void* kmalloc_p(uint32_t sz, uint32_t *phys);
 void* kmalloc_ap(uint32_t sz, uint32_t *phys);
 void* kmalloc(uint32_t sz);
-void kfree(void* ptr);
 
 #endif

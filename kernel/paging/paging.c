@@ -146,8 +146,8 @@ void switch_page_directory(page_directory_t *dir)
     asm volatile("mov %0, %%cr3":: "r"(&dir->tablesPhysical));
     uint32_t cr0;
     asm volatile("mov %%cr0, %0": "=r"(cr0));
-    cr0 |= 0x80000000; // Enable paging!
-    PANIC("If this panic command is not present, a failure will occur.", __LINE__); // Just preventing the crash
+    cr0 |= 0x80000001; // Enable paging!
+    // PANIC("If this panic command is not present, a failure will occur.", __LINE__); // Just preventing the crash
     asm volatile("mov %0, %%cr0":: "r"(cr0)); // This is why it crashes.
 }
 

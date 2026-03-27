@@ -67,15 +67,10 @@ void* kmalloc_int(uint32_t sz, int align, uint32_t *phys)
     {
         *phys = placement_address;
     }
-    block* tmp = (block*)placement_address;
+    block* tmp = (block*)placement_address; // Idk is this works well
     tmp->size = sz;
     placement_address += sz;
     return tmp;
-}
-void kfree(void* ptr) {
-    if (!ptr) return;
-    placement_address -= ((block*)ptr)->size;
-    memset((void*)placement_address, 0, ((block*)ptr)->size);
 }
 void* kmalloc_a(uint32_t sz)
 {

@@ -20,7 +20,7 @@ KERNEL_OBJECTS = kernel/kernel.o kernel/ports.o kernel/mem.o
 DRIVER_OBJECTS = kernel/drivers/vga.o kernel/drivers/keyboard.o kernel/drivers/tables/idt/idt_c.o kernel/drivers/tables/idt/idt_s.o \
 	kernel/drivers/tables/isr/isr_c.o kernel/drivers/tables/isr/isr_s.o kernel/drivers/tables/irq/irq_c.o kernel/drivers/tables/irq/irq_s.o \
 	kernel/drivers/tables/timer/timer.o kernel/drivers/panic.o
-MISC_OBJECTS = kernel/colors.o kernel/terminal/terminal.o kernel/commands.o kernel/layouts/kb_layouts.o \
+MISC_OBJECTS = kernel/terminal/terminal.o kernel/commands.o kernel/layouts/kb_layouts.o \
                kernel/comos/comos_lexer.o kernel/comos/comos_parser.o kernel/comos/comos_interp.o kernel/paging/paging.o # ADDED
 # Ember2819
 FS_OBJECTS = kernel/drivers/ata.o kernel/fs/fat16.o
@@ -35,8 +35,6 @@ all: os.img
 bootloader/boot.bin: bootloader/boot.s
 	$(AS) $(AS_FLAGS) $< -o $@
 # Added by MorganPG1
-kernel/colors.o: kernel/colors.c
-	$(CC) $(CC_FLAGS) $< -o $@ || $(CC2) $(CC_FLAGS) $< -o $@
 kernel/layouts/kb_layouts.o: kernel/layouts/kb_layouts.c
 	$(CC) $(CC_FLAGS) $< -o $@ || $(CC2) $(CC_FLAGS) $< -o $@
 
