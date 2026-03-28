@@ -20,4 +20,7 @@ void* kmalloc_p(uint32_t sz, uint32_t *phys);
 void* kmalloc_ap(uint32_t sz, uint32_t *phys);
 void* kmalloc(uint32_t sz);
 
+typedef unsigned int size_t;
+typedef int ssize_t;
+
 #endif
