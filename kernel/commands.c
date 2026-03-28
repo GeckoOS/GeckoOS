@@ -3,7 +3,6 @@
 #include "colors.h"
 #include "drivers/keyboard.h"
 #include "drivers/tables/timer/timer.h"
-#include "drivers/vga.h"
 #include "layouts/kb_layouts.h"
 #include "terminal/terminal.h"
 #include "comos/comos.h"
@@ -32,8 +31,6 @@ static Command commands[] = {
     { "ls",        cmd_ls        },  // List root directory
     { "cat",       cmd_cat       },  // Print a file's contents
     { "fsinfo",    cmd_fsinfo    },  // Show filesystem info (mostly for debugging)
-    { "qoff", cmd_qoff },
-    { "malloc", cmd_malloc }, // Allocate
 };
 
 static int num_commands = sizeof(commands) / sizeof(commands[0]);
@@ -41,65 +38,64 @@ static int num_commands = sizeof(commands) / sizeof(commands[0]);
 // ---- Command Functions ----
 
 static void cmd_help(uint8_t color) {
-    printf("\nhelp - Show this message\n", color);
-    printf("hello - Say hello\n", color);
-    printf("contributors - Display names of all contributors\n", color);
-    printf("setkeyswe - Set the keyboard layout to Swedish QWERTY\n", color); // Zorx555 - Keyboard layout commands
-    printf("setkeyus - Set the keyboard layout to US QWERTY\n", color);
-    printf("setkeyuk - Set the keyboard layout to UK QWERTY\n", color); // MorganPG1 - Add UK Keyboard layout
-    printf("clear - Clear the screen\n", color); //ember
-    printf("version - Show the current version of the operating system\n", color); // TheOtterMonarch - Output version of the OS
-    printf("chars - Print the available characters\n", color);
-    printf("comos - Run the .comos scripting language\n", color);
-    printf("sleep - Sleeps for 5 seconds (Finally the timer works!)\n", color); // Pumpkicks - yes
-    printf("reboot - Reboots the machine\n", color); // Pumpkicks - reboots
-    printf("qoff - Poweroff the QEMU emulator\n", color); // Pumpkicks - yes
-    printf("ticks - Prints the timer tick\n", color); // Pumpkicks - show timer ticks
-    printf("fsmount - Initialize ATA and mount the FAT16 filesystem\n", color); //Ember2819 I did all the filesystem stuff
-    printf("ls - List files in the FAT16 root directory\n", color);
-    printf("cat - Print a file from the FAT16 volume (prompts for name)\n", color);
-    printf("fsinfo - Show FAT16 volume/BPB details\n", color);
+    printc("\nhelp - Show this message\n", color);
+    printc("hello - Say hello\n", color);
+    printc("contributors - Display names of all contributors\n", color);
+    printc("setkeyswe - Set the keyboard layout to Swedish QWERTY\n", color); // Zorx555 - Keyboard layout commands
+    printc("setkeyus - Set the keyboard layout to US QWERTY\n", color);
+    printc("setkeyuk - Set the keyboard layout to UK QWERTY\n", color); // MorganPG1 - Add UK Keyboard layout
+    printc("clear - Clear the screen\n", color); //ember
+    printc("version - Show the current version of the operating system\n", color); // TheOtterMonarch - Output version of the OS
+    printc("chars - Print the available characters\n", color);
+    printc("comos - Run the .comos scripting language\n", color);
+    printc("sleep - Sleeps for 5 seconds (Finally the timer works!)\n", color); // Pumpkicks - yes
+    printc("reboot - Reboots the machine\n", color); // Pumpkicks - reboots
+    printc("ticks - Prints the timer tick\n", color); // Pumpkicks - show timer ticks
+    printc("fsmount - Initialize ATA and mount the FAT16 filesystem\n", color); //Ember2819 I did all the filesystem stuff
+    printc("ls - List files in the FAT16 root directory\n", color);
+    printc("cat - Print a file from the FAT16 volume (prompts for name)\n", color);
+    printc("fsinfo - Show FAT16 volume/BPB details\n", color);
 }
 
 static void cmd_hello(uint8_t color) {
-    printf("\nHello, world!\n", color);
+    printc("\nHello, world!\n", color);
 }
 
 static void cmd_contributors(uint8_t color) {
-    printf("\n--- Contributors ---\n", color);
-    printf("Ember2819 - Founder\n", BOLD_COLOR);
-    printf("Sifi11\n", color);
-    printf("Crim\n", color);
-    printf("CheeseFunnel23\n", color);
-    printf("bonk enjoyer/dorito girl\n", BOLD_COLOR);
-    printf("KaleidoscopeOld5841\n", color);
-    printf("billythemoon\n", color);
-    printf("TheGirl790\n", color);
-    printf("kotofyt\n", color);
-    printf("xtn59\n", color);
-    printf("c-bass\n", color);
-    printf("u/EastConsequence3792\n", color);
-    printf("MorganPG1\n", color);
-    printf("Zorx555\n", color);
-    printf("mckaylap2304\n", color);
-    printf("TheOtterMonarch\n", color);
-    printf("codecrafter01001\n", color);
-    printf("Pumpkicks\n", color);
+    printc("\n--- Contributors ---\n", color);
+    printc("Ember2819 - Founder\n", BOLD_COLOR);
+    printc("Sifi11\n", color);
+    printc("Crim\n", color);
+    printc("CheeseFunnel23\n", color);
+    printc("bonk enjoyer/dorito girl\n", BOLD_COLOR);
+    printc("KaleidoscopeOld5841\n", color);
+    printc("billythemoon\n", color);
+    printc("TheGirl790\n", color);
+    printc("kotofyt\n", color);
+    printc("xtn59\n", color);
+    printc("c-bass\n", color);
+    printc("u/EastConsequence3792\n", color);
+    printc("MorganPG1\n", color);
+    printc("Zorx555\n", color);
+    printc("mckaylap2304\n", color);
+    printc("TheOtterMonarch\n", color);
+    printc("codecrafter01001\n", color);
+    printc("Pumpkicks\n", color);
 }
 
 static void cmd_setkeyswe(uint8_t color) {
     set_layout(LAYOUTS[1]); // Changed to work with my layout system
-    printf("\nKeyboard layout set to Swedish QWERTY\n", color);
+    printc("\nKeyboard layout set to Swedish QWERTY\n", color);
 }
 
 static void cmd_setkeyus(uint8_t color) {
     set_layout(LAYOUTS[0]); // Changed to work with my layout system
-    printf("\nKeyboard layout set to US QWERTY\n", color);
+    printc("\nKeyboard layout set to US QWERTY\n", color);
 }
 
 static void cmd_setkeyuk(uint8_t color) { // Added by MorganPG1
     set_layout(LAYOUTS[2]); 
-    printf("\nKeyboard layout set to UK QWERTY\n", color);
+    printc("\nKeyboard layout set to UK QWERTY\n", color);
 }
 
 static void cmd_clear(uint8_t color) {
@@ -107,24 +103,24 @@ static void cmd_clear(uint8_t color) {
 }
 
 static void cmd_version(uint8_t color) {
-    printf("\nGeckoOS v1.0\nUsing GeckoOS Bootloader 1.0\n", color);
+    printc("\nGeckoOS v1.0\nUsing GeckoOS Bootloader 1.0\n", color);
 }
 
 static void cmd_chars(uint8_t color) {
-    printf("\n\n  ", color);
+    printc("\n\n  ", color);
     for (int i = 1; i < 256; i++) {
         if (i == 9 || i == 10) {
-            printf(" ", color);
+            printc(" ", color);
         } else {
             char c = i;
             putchar(c, color);
         }
-        printf(" ", color);
+        printc(" ", color);
         if ((i+1)%16 == 0) {
-            printf("\n", color);
+            printc("\n", color);
         }
     }
-    printf("\n", color);
+    printc("\n", color);
 }
 static void cmd_sleep5(uint8_t color) {
     print("\nSleeping for 5 seconds...\n");
@@ -140,59 +136,55 @@ static void cmd_print_ticks(uint8_t color) {
     print_int(get_tick());
     print("\n");
 }
-static void cmd_qoff(uint8_t color) {
-    // QEMU2_0_poweroff(); If you QEMU is older than 2.0, this will work
-    QEMU_poweroff(); // If you QEMU is newer than 2.0, this will not work
-}
 
 static void cmd_fsmount(uint8_t color) {
-    printf("\nInitializing ATA driver...\n", color);
+    printc("\nInitializing ATA driver...\n", color);
     int found = ata_init();
     if (!found) {
-        printf("ATA: No drives detected.\n", VGA_COLOR_RED);
-        printf("Hint: In QEMU, add: -drive format=raw,file=fat16.img\n", color);
+        printc("ATA: No drives detected.\n", VGA_COLOR_RED);
+        printc("Hint: In QEMU, add: -drive format=raw,file=fat16.img\n", color);
         return;
     }
 
     // Report what was found
-    printf("ATA: Found ", color);
+    printc("ATA: Found ", color);
     print_int(found);
-    printf(" drive(s).\n", color);
-    printf("  Drive 0 (master): ", color);
-    printf(ata_drive_present(ATA_DRIVE_MASTER) ? "present\n" : "not found\n", color);
-    printf("  Drive 1 (slave):  ", color);
-    printf(ata_drive_present(ATA_DRIVE_SLAVE)  ? "present\n" : "not found\n", color);
+    printc(" drive(s).\n", color);
+    printc("  Drive 0 (master): ", color);
+    printc(ata_drive_present(ATA_DRIVE_MASTER) ? "present\n" : "not found\n", color);
+    printc("  Drive 1 (slave):  ", color);
+    printc(ata_drive_present(ATA_DRIVE_SLAVE)  ? "present\n" : "not found\n", color);
 
     if (!ata_drive_present(ATA_DRIVE_SLAVE)) {
-        printf("No slave drive found. Is fat16.img attached as a second drive?\n", VGA_COLOR_RED);
+        printc("No slave drive found. Is fat16.img attached as a second drive?\n", VGA_COLOR_RED);
         return;
     }
 
-    printf("Mounting FAT16 on drive 1 (slave) at LBA 0...\n", color);
+    printc("Mounting FAT16 on drive 1 (slave) at LBA 0...\n", color);
     if (fat16_mount(ATA_DRIVE_SLAVE, 0) != 0) {
-        printf("FAT16 mount failed. Is fat16.img a valid FAT16 image?\n", VGA_COLOR_RED);
+        printc("FAT16 mount failed. Is fat16.img a valid FAT16 image?\n", VGA_COLOR_RED);
         return;
     }
-    printf("FAT16 mounted successfully.\n", color);
+    printc("FAT16 mounted successfully.\n", color);
 }
 
 static void cmd_ls(uint8_t color) {
-    // (void)color; // Why?
+    (void)color;
     fat16_list_root();
 }
 
 static void cmd_cat(uint8_t color) {
-    printf("\nEnter filename: ", color);
+    printc("\nEnter filename: ", color);
 
     unsigned char fname[32];
-    input(fname, 32, color, 0);
-    printf("\n", color);
+    input(fname, 32, color);
+    printc("\n", color);
 
     FAT16_File f;
     if (fat16_open((char *)fname, &f) != 0) {
-        printf("File not found: ", VGA_COLOR_RED);
-        printf((char *)fname, VGA_COLOR_RED);
-        printf("\n", VGA_COLOR_RED);
+        printc("File not found: ", VGA_COLOR_RED);
+        printc((char *)fname, VGA_COLOR_RED);
+        printc("\n", VGA_COLOR_RED);
         return;
     }
 
@@ -203,28 +195,28 @@ static void cmd_cat(uint8_t color) {
             putchar(readbuf[i], color);
         }
     }
-    printf("\n", color);
+    printc("\n", color);
     fat16_close(&f);
 }
 
 static void cmd_fsinfo(uint8_t color) {
     const FAT16_Volume *v = fat16_get_volume();
     if (!v->mounted) {
-        printf("\nFilesystem not mounted. Run 'fsmount' first.\n", VGA_COLOR_RED);
+        printc("\nFilesystem not mounted. Run 'fsmount' first.\n", VGA_COLOR_RED);
         return;
     }
-    printf("\n-- FAT16 Volume Info --\n", color);
-    printf("  Bytes/sector:      ", color); print_int(v->bpb.bytes_per_sector);   printf("\n", color);
-    printf("  Sectors/cluster:   ", color); print_int(v->bpb.sectors_per_cluster);printf("\n", color);
-    printf("  Reserved sectors:  ", color); print_int(v->bpb.reserved_sectors);   printf("\n", color);
-    printf("  FATs:              ", color); print_int(v->bpb.num_fats);            printf("\n", color);
-    printf("  Root entries:      ", color); print_int(v->bpb.root_entry_count);   printf("\n", color);
-    printf("  Sectors/FAT:       ", color); print_int(v->bpb.sectors_per_fat);    printf("\n", color);
-    printf("  Total sectors:     ", color); print_int(v->total_sectors);          printf("\n", color);
-    printf("  FAT LBA:           ", color); print_int(v->fat_lba);                printf("\n", color);
-    printf("  Root dir LBA:      ", color); print_int(v->root_dir_lba);           printf("\n", color);
-    printf("  Data area LBA:     ", color); print_int(v->data_lba);               printf("\n", color);
-    printf("-----------------------\n", color);
+    printc("\n-- FAT16 Volume Info --\n", color);
+    printc("  Bytes/sector:      ", color); print_int(v->bpb.bytes_per_sector);   printc("\n", color);
+    printc("  Sectors/cluster:   ", color); print_int(v->bpb.sectors_per_cluster);printc("\n", color);
+    printc("  Reserved sectors:  ", color); print_int(v->bpb.reserved_sectors);   printc("\n", color);
+    printc("  FATs:              ", color); print_int(v->bpb.num_fats);            printc("\n", color);
+    printc("  Root entries:      ", color); print_int(v->bpb.root_entry_count);   printc("\n", color);
+    printc("  Sectors/FAT:       ", color); print_int(v->bpb.sectors_per_fat);    printc("\n", color);
+    printc("  Total sectors:     ", color); print_int(v->total_sectors);          printc("\n", color);
+    printc("  FAT LBA:           ", color); print_int(v->fat_lba);                printc("\n", color);
+    printc("  Root dir LBA:      ", color); print_int(v->root_dir_lba);           printc("\n", color);
+    printc("  Data area LBA:     ", color); print_int(v->data_lba);               printc("\n", color);
+    printc("-----------------------\n", color);
 }
 
 //Ember2819,COMOS language 
@@ -244,20 +236,6 @@ static void cmd_comos(uint8_t color) {
     comos_init(&comos_state);
     comos_run(&comos_state, demo);
 }
-static void cmd_malloc(uint8_t color) {
-    print("\nsize?: ");
-    unsigned char buff[10];
-    input(buff, 10, VGA_COLOR_WHITE, 0);
-    int size = atoi(buff);
-
-    char* bytes = kmalloc(size);
-
-    print("\nallocated ");
-    print_int(size);
-    print(" bytes at ");
-    print_hex((uint32_t)bytes);
-    putchar('\n', VGA_COLOR_BLACK);
-}
 
 // ---- dispatcher ----
 static int streq(unsigned char *a, char *b) {
@@ -276,6 +254,6 @@ void run_command(unsigned char *input, uint8_t color) {
             return;
         }
     }
-    if (strlen((char*)input) != 0) printf("\nUnknown command. Type 'help' for available commands\n", color);
-    else printf("\n", color);
+    if (strlen((char*)input) != 0) printc("\nUnknown command. Type 'help' for available commands\n", color);
+    else printc("\n", color);
 }

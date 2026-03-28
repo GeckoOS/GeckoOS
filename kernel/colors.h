@@ -5,9 +5,9 @@
 #include "drivers/vga.h"
 #include <stdint.h>
 
-#define BG_COLOR        VGA_COLOR_BLACK
-#define TERM_COLOR      VGA_COLOR_WHITE | BG_COLOR << 4
-#define PROMPT_COLOR    VGA_COLOR_LIGHT_GREEN | BG_COLOR << 4
-#define BOLD_COLOR      VGA_COLOR_LIGHT_GREY | BG_COLOR << 4
+extern const uint8_t BG_COLOR;
+extern const uint8_t TERM_COLOR;
+extern const uint8_t PROMPT_COLOR;
+extern const uint8_t BOLD_COLOR;
 
 #endif

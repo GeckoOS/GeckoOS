@@ -26,12 +26,10 @@ static void cmd_chars(uint8_t color);
 
 static void cmd_comos(uint8_t color);
 
-//Pumpkicks
+//Pumpkicks: timer and reboot
 static void cmd_sleep5(uint8_t color);
 static void cmd_print_ticks(uint8_t color);
 static void cmd_reboot(uint8_t color);
-static void cmd_qoff(uint8_t color);
-static void cmd_malloc(uint8_t color);
 
 static void cmd_fsmount(uint8_t color);
 static void cmd_ls(uint8_t color);

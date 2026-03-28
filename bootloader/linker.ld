@@ -1,10 +1,8 @@
-/* By Ember2819, your welcome dorito girl. Took me way too long to figure out how to make this... */
-
 ENTRY(_entry)
 
 SECTIONS
 {
-    . = 0x100000;
+    . = 0x10000;
 
     .text   : { 
         *(.text.entry)
@@ -17,5 +15,4 @@ SECTIONS
         *(.bss)
         *(COMMON)
     }
-    end = .; _end = .; __end = .;
 }

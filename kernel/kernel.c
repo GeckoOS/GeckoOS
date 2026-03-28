@@ -5,8 +5,8 @@
 #include "drivers/tables/timer/timer.h"
 #include "drivers/vga.h"
 #include "drivers/keyboard.h"
+#include "drivers/drives.h"
 #include "layouts/kb_layouts.h"
-#include "mem.h"
 #include "paging/paging.h"
 #include "terminal/terminal.h"
 #include "commands.h" // Included by Ember2819: Adds commands
@@ -24,24 +24,25 @@ __attribute__((section(".text.entry"))) // Add section attribute so linker knows
 void _entry() {
     // Initialise display.
     vga_clear(TERM_COLOR);
-    printf("----- COMMUNITY OS v1.0 -----\n", TERM_COLOR);
-    printf("Built by random people on the internet.\n", TERM_COLOR);
-    printf("Use help to see available commands.\n", TERM_COLOR);
+    printc("----- COMMUNITY OS v1.0 -----\n", TERM_COLOR);
+    printc("Built by random people on the internet.\n", TERM_COLOR);
+    printc("Use help to see available commands.\n", TERM_COLOR);
 
     // Setup keyboard layouts
     set_layout(LAYOUTS[0]);
 
-    printf("Enabling IDT...\n", VGA_COLOR_LIGHT_GREY);
+    printc("Enabling IDT...\n", VGA_COLOR_LIGHT_GREY);
     init_idt();
-    printf("Enabling IRQ...\n", VGA_COLOR_LIGHT_GREY);
+    printc("Enabling IRQ...\n", VGA_COLOR_LIGHT_GREY);
     irq_install();
-    printf("Enabling Timer and setting it to 50Hz...\n", VGA_COLOR_LIGHT_GREY);
+    printc("Enabling Timer and setting it to 50Hz...\n", VGA_COLOR_LIGHT_GREY);
     timer_install();
     timer_phase(50);
-    printf("Testing interruption...\n", VGA_COLOR_LIGHT_GREY);
+    printc("Testing interruption...\n", VGA_COLOR_LIGHT_GREY);
     asm volatile("int $0x3");
-    printf("Test completed!\n", VGA_COLOR_GREEN);
-    // initialise_paging(); // Crashes
+    printc("Test completed!\n", VGA_COLOR_LIGHT_GREY);
+    initialise_paging();
+    drives_init();
     kmain(); // _entry will be the initialization
 }
 
@@ -49,16 +50,16 @@ static void kmain()
 {
     // malloc(938); Idk if it works tbh
     // outb(0x64, 0xfe); // Reboots the machine? (It acts weird in QEMU, but it reboots at least)
+    get_kdrive(0);
 
     while (1) {    // Shell loop
         // Prints shell prompt
-        printf("> ", PROMPT_COLOR);
+        printc("> ", PROMPT_COLOR);
         
         //Obtains and processes the user input
-        // register int eax asm("eax");
 
         unsigned char buff[512];
-        input(buff, 512, TERM_COLOR, 1);
+        input(buff, 512, TERM_COLOR);
         process_input(buff);
     }
 

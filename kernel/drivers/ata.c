@@ -2,6 +2,8 @@
 #include "ata.h"
 #include "../ports.h"
 #include <stdint.h>
+#include "drives.h"
+#include "../terminal/terminal.h"
 
 static int drive_present[2] = {0, 0};
 
@@ -17,7 +19,8 @@ static int ata_poll_bsy(void) {
     uint32_t timeout = 100000;
     while (timeout--) {
         uint8_t status = inb(ATA_PRIMARY_BASE + ATA_REG_STATUS);
-        return !(status & ATA_SR_BSY) ? 0 : -1;
+        if (status & ATA_SR_ERR)   return -1;
+        if (!(status & ATA_SR_BSY)) return 0;
     }
     return -1;
 }
@@ -32,48 +35,66 @@ static int ata_poll_drq(void) {
     return -1;
 }
 
+static int ata_kdrive_read_sectors( struct kdrive_t *drive, unsigned int lba, unsigned int count, uint8_t *buf)
+{
+	return ata_read_sectors(drive->userdata1, lba, count, buf);
+}
+static ssize_t ata_kdrive_write_sectors( struct kdrive_t *drive, size_t lba, size_t count, const uint8_t *buf)
+{
+	return ata_write_sectors(drive->userdata1, lba, count, buf);
+}
+
 static int ata_check_drive(int drive) {
-    uint8_t select = drive ? ATA_SELECT_SLAVE : ATA_SELECT_MASTER;
+	uint8_t select = drive ? ATA_SELECT_SLAVE : ATA_SELECT_MASTER;
+	drive_present[drive] = 0;
 
-    // Select the drive
-    outb(ATA_PRIMARY_BASE + ATA_REG_HDDEVSEL, select);
-    ata_delay();
+	// Select the drive
+	outb(ATA_PRIMARY_BASE + ATA_REG_HDDEVSEL, select);
+	ata_delay();
 
-    outb(ATA_PRIMARY_BASE + ATA_REG_SECCOUNT, 0);
-    outb(ATA_PRIMARY_BASE + ATA_REG_LBA_LO,   0);
-    outb(ATA_PRIMARY_BASE + ATA_REG_LBA_MID,  0);
-    outb(ATA_PRIMARY_BASE + ATA_REG_LBA_HI,   0);
+	outb(ATA_PRIMARY_BASE + ATA_REG_SECCOUNT, 0);
+	outb(ATA_PRIMARY_BASE + ATA_REG_LBA_LO,   0);
+	outb(ATA_PRIMARY_BASE + ATA_REG_LBA_MID,  0);
+	outb(ATA_PRIMARY_BASE + ATA_REG_LBA_HI,   0);
 
-    outb(ATA_PRIMARY_BASE + ATA_REG_COMMAND, ATA_CMD_IDENTIFY);
-    ata_delay();
+	outb(ATA_PRIMARY_BASE + ATA_REG_COMMAND, ATA_CMD_IDENTIFY);
+	ata_delay();
 
-    uint8_t status = inb(ATA_PRIMARY_BASE + ATA_REG_STATUS);
-    if (status == 0) return 0;
+	uint8_t status = inb(ATA_PRIMARY_BASE + ATA_REG_STATUS);
+	if (status == 0) return 0;
 
-    if (ata_poll_bsy() != 0) return 0;
+	if (ata_poll_bsy() != 0) return 0;
 
-    uint8_t mid = inb(ATA_PRIMARY_BASE + ATA_REG_LBA_MID);
-    uint8_t hi  = inb(ATA_PRIMARY_BASE + ATA_REG_LBA_HI);
-    if (mid != 0 || hi != 0) return 0; 
+	uint8_t mid = inb(ATA_PRIMARY_BASE + ATA_REG_LBA_MID);
+	uint8_t hi  = inb(ATA_PRIMARY_BASE + ATA_REG_LBA_HI);
+	if (mid != 0 || hi != 0) return 0; 
 
-    if (ata_poll_drq() != 0) return 0;
+	if (ata_poll_drq() != 0) return 0;
 
-    for (int i = 0; i < 256; i++) {
-        inw(ATA_PRIMARY_BASE + ATA_REG_DATA);
-    }
+	for (int i = 0; i < 256; i++) {
+		inw(ATA_PRIMARY_BASE + ATA_REG_DATA);
+	}
 
-    return 1;
+
+	struct kdrive_t kdrive = {};
+	kdrive.userdata1 = drive;
+	kdrive.read = (kdrive_read_sectors)ata_kdrive_read_sectors;
+	kdrive.write = (kdrive_write_sectors)ata_kdrive_write_sectors;
+	drive_present[drive] = 1;
+	register_kdrive(&kdrive);
+
+	return 1;
 }
 
 // If you read this open up an issue with the secret code "SuperSecretCode12345" For a prize...
 
 int ata_init(void) {
-    int found = 0;
-    drive_present[ATA_DRIVE_MASTER] = ata_check_drive(ATA_DRIVE_MASTER);
-    drive_present[ATA_DRIVE_SLAVE]  = ata_check_drive(ATA_DRIVE_SLAVE);
-    if (drive_present[0]) found++;
-    if (drive_present[1]) found++;
-    return found;
+	int found = 0;
+	ata_check_drive(ATA_DRIVE_MASTER);
+	ata_check_drive(ATA_DRIVE_SLAVE);
+	if (drive_present[0]) found++;
+	if (drive_present[1]) found++;
+	return found;
 }
 
 int ata_drive_present(int drive) {
@@ -81,7 +102,9 @@ int ata_drive_present(int drive) {
     return drive_present[drive];
 }
 
+
 int ata_read_sectors(int drive, uint32_t lba, uint8_t count, uint8_t *buf) {
+
     if (!drive_present[drive]) return -1;
     if (ata_poll_bsy() != 0) return -1;
 

@@ -17,8 +17,8 @@ static inline void comos_print(const char* s) { fputs(s, stdout); }
 #include <stddef.h>
 #include <stdbool.h>
 #include "../colors.h"
-void printf(char* data, uint8_t color);
-static inline void comos_print(const char* s) { printf((char*)s, TERM_COLOR); }
+void printc(char* data, uint8_t color);
+static inline void comos_print(const char* s) { printc((char*)s, TERM_COLOR); }
 #endif
 
 #define COMOS_MAX_TOKENS     2048

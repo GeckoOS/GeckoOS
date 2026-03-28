@@ -82,14 +82,14 @@ int fat16_mount(int drive, uint32_t partition_lba) {
     vol.ata_drive = drive;
 
     if (ata_read_sectors(drive, partition_lba, 1, sector_buf) != 0) {
-        printf("[FAT16] Error: could not read boot sector\n", VGA_COLOR_RED);
+        printc("[FAT16] Error: could not read boot sector\n", VGA_COLOR_RED);
         return -1;
     }
 
     memcpy(&vol.bpb, sector_buf, sizeof(FAT16_BPB));
     //spec says dont do this but im doing it anyway lol
     if (vol.bpb.bytes_per_sector == 0 || vol.bpb.sectors_per_cluster == 0) {
-        printf("[FAT16] Error: invalid BPB (zero bytes/sector or sectors/cluster)\n", VGA_COLOR_RED);
+        printc("[FAT16] Error: invalid BPB (zero bytes/sector or sectors/cluster)\n", VGA_COLOR_RED);
         return -1;
     }
 
@@ -114,7 +114,7 @@ int fat16_mount(int drive, uint32_t partition_lba) {
 
 void fat16_list_root(void) {
     if (!vol.mounted) {
-        printf("\n[FAT16] Not mounted.\n", VGA_COLOR_RED);
+        printc("[FAT16] Not mounted.\n", VGA_COLOR_RED);
         return;
     }
 
@@ -122,7 +122,7 @@ void fat16_list_root(void) {
                                   + vol.bpb.bytes_per_sector - 1)
                                  / vol.bpb.bytes_per_sector;
 
-    printf("\n-- Root Directory --\n", TERM_COLOR);
+    printc("\n-- Root Directory --\n", TERM_COLOR);
 
     int found_any = 0;
 
@@ -144,18 +144,18 @@ void fat16_list_root(void) {
             format_83_name(entries[i].name, entries[i].ext, name_buf);
 
             if (entries[i].attributes & FAT16_ATTR_DIRECTORY) {
-                printf("  [DIR]  ", TERM_COLOR);
+                printc("  [DIR]  ", TERM_COLOR);
             } else {
-                printf("  [FILE] ", TERM_COLOR);
+                printc("  [FILE] ", TERM_COLOR);
             }
-            printf(name_buf, TERM_COLOR);
+            printc(name_buf, TERM_COLOR);
 
             if (!(entries[i].attributes & FAT16_ATTR_DIRECTORY)) {
-                printf("  (", TERM_COLOR);
+                printc("  (", TERM_COLOR);
                 print_int(entries[i].file_size);
-                printf(" bytes)\n", TERM_COLOR);
+                printc(" bytes)\n", TERM_COLOR);
             } else {
-                printf("\n", TERM_COLOR);
+                printc("\n", TERM_COLOR);
             }
             found_any = 1;
         }
@@ -163,9 +163,9 @@ void fat16_list_root(void) {
 
 done_listing:
     if (!found_any) {
-        printf("  (empty)\n", TERM_COLOR);
+        printc("  (empty)\n", TERM_COLOR);
     }
-    printf("--------------------------\n", TERM_COLOR);
+    printc("--------------------------\n", TERM_COLOR);
 }
 
 int fat16_open(const char *filename, FAT16_File *file) {

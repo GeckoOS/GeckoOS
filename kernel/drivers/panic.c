@@ -5,7 +5,7 @@
 void PANIC(char* str, int line) {
     print(str);
     putchar('\n', VGA_COLOR_BLACK);
-    printf("PANIC", VGA_COLOR_RED);
+    printc("PANIC", VGA_COLOR_RED);
     putchar('(', VGA_COLOR_WHITE);
     print(__FILE_NAME__);
     print(" at line ");

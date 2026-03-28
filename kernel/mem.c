@@ -1,6 +1,7 @@
 #include "terminal/terminal.h"
 #include <stddef.h>
 #include <stdint.h>
+
 void* memcpy(void* dest, const void* src, unsigned long n) {
     // n = Number of bytes
 
