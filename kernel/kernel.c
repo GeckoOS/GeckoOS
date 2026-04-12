@@ -9,9 +9,20 @@
 #include "drivers/tables/timer/timer.h"
 #include "drivers/vga.h"
 #include "layouts/kb_layouts.h"
+#include "process/process.h"
+#include "process/process.h"
 #include "terminal/terminal.h"
 #include "users/users.h" // ember2819: user & permission system
 #include <stdint.h>
+
+
+//this is just so that the process scheduler does not cause a triple fault
+void idle_process()
+{
+    while (1) {
+        asm volatile("hlt"); 
+    }
+}
 
 void process_input(unsigned char *buffer) { run_command(buffer, TERM_COLOR); }
 
@@ -19,6 +30,9 @@ static void kmain();
 
 
 __attribute__((section(".text.entry"))) void _entry() {
+
+    process_t* idle = create_process((uint32_t)idle_process);
+    
 
     kalloc_init();
 
