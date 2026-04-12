@@ -1,26 +1,24 @@
-//#include "kernel.h"
-#include "drivers/tables/idt/idt.h"
+// #include "kernel.h"
+#include "colors.h"   // Added by MorganPG1 to centralise colors into one file
+#include "commands.h" // Included by Ember2819: Adds commands
+#include "drivers/drives.h"
+#include "drivers/keyboard.h"
 #include "drivers/tables/idt/idt.h"
 #include "drivers/tables/irq/irq.h"
+#include "drivers/tables/paging/paging.h"
 #include "drivers/tables/timer/timer.h"
 #include "drivers/vga.h"
-#include "drivers/keyboard.h"
-#include "drivers/drives.h"
 #include "layouts/kb_layouts.h"
 #include "terminal/terminal.h"
-#include "commands.h"       // Included by Ember2819: Adds commands
-#include "colors.h"         // Added by MorganPG1 to centralise colors into one file
-#include "users/users.h"    // ember2819: user & permission system
+#include "users/users.h" // ember2819: user & permission system
 #include <stdint.h>
 
-void process_input(unsigned char *buffer) {
-    run_command(buffer, TERM_COLOR);
-}
+void process_input(unsigned char *buffer) { run_command(buffer, TERM_COLOR); }
 
 static void kmain();
 
-__attribute__((section(".text.entry")))
-void _entry() {
+
+__attribute__((section(".text.entry"))) void _entry() {
 
     kalloc_init();
 
@@ -37,6 +35,12 @@ void _entry() {
     printc("Enabling IRQ...\n", VGA_COLOR_LIGHT_GREY);
     irq_install();
     printc("Enabling Timer and setting it to 50Hz...\n", VGA_COLOR_LIGHT_GREY);
+    //DEFAULT QEMU GIVES 128  * 1024B (128KB)
+    //need to keep in mind when paging so you do not get strange errors because running out of memory
+    paging_init(10 * 1024);
+
+   
+
     timer_install();
     keyboard_install();
     timer_phase(50);
@@ -47,13 +51,13 @@ void _entry() {
     drives_init();
 
     users_init();
-    printc("User system initialised. Default accounts: root / guest\n", VGA_COLOR_LIGHT_GREY);
+    printc("User system initialised. Default accounts: root / guest\n",
+           VGA_COLOR_LIGHT_GREY);
 
     kmain();
 }
 
-static void kmain()
-{
+static void kmain() {
     get_kdrive(0);
 
     do_login_prompt();
@@ -62,7 +66,8 @@ static void kmain()
         // Build the prompt: "username> "
         user_t *u = users_current();
         if (u) {
-            uint8_t pcolor = (u->ring == RING_ADMIN) ? VGA_COLOR_LIGHT_RED : PROMPT_COLOR;
+            uint8_t pcolor =
+                (u->ring == RING_ADMIN) ? VGA_COLOR_LIGHT_RED : PROMPT_COLOR;
             printc(u->name, pcolor);
             printc("> ", pcolor);
         } else {
