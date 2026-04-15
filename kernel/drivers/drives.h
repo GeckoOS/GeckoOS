@@ -1,7 +1,7 @@
 #ifndef DRIVES_H
 #define DRIVES_H
 #include "stdint.h"
-#include "../mem.h"
+#include <mem/mem.h>
 #include "../partition/partition.h"
 
 

@@ -126,7 +126,7 @@ uint32_t create_process(void *entry_point)
     nr_processes++;
 
     if (enqueue(&process_queue, proc) != 0) {
-        printc("WAKE UP MTF", VGA_COLOR_RED);
+        
     }
     print_int(proc->id);
 
@@ -177,9 +177,9 @@ void switch_task()
 {
     Process *v;
     v = dequeue(process_queue);
-    print_int(v->id);
+    
     if (v != 0) {
-        print_int(v->id);
+       
         execute_process(v);
     } else {
 

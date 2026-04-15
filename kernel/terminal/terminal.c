@@ -1,6 +1,6 @@
 #include "../drivers/keyboard.h"
 #include "../drivers/vga.h"
-#include "../mem.h"
+#include <mem/mem.h>
 #include "terminal.h"
 #include "../gk/gk.h"
 #include <stdint.h>

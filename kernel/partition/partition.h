@@ -1,6 +1,6 @@
 #ifndef PARTITION_H
 #define PARTITION_H
-#include "stdint.h"
+#include <stdint.h>
 
 enum partition_fs_t
 {

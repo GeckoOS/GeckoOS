@@ -1,8 +1,8 @@
 #include "fat16.h"
 #include "../drivers/ata.h"
-#include "../mem.h"
+#include <mem/mem.h>
 #include "../terminal/terminal.h"
-#include "../colors.h"
+#include "colors.h"
 #include "../partition/partition.h"
 #include "fs.h"
 #include <stdint.h>

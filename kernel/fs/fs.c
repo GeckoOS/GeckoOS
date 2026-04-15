@@ -1,5 +1,6 @@
 #include "fs.h"
 #include "fat16.h"
+#include <stdint.h>
 
 struct drive_fs_t *fs_drive_open( struct kdrive_t *drive )
 {

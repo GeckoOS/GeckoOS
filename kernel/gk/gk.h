@@ -31,7 +31,7 @@ static inline int gk_hosted_getline(char* buf, int max) {
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
-#include "../colors.h"
+#include "colors.h"
 void printc(char* data, uint8_t color);
 
 static inline void gk_print(const char* s) { printc((char*)s, TERM_COLOR); }

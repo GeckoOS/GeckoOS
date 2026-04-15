@@ -6,7 +6,7 @@
 #include "layouts/kb_layouts.h"
 #include "terminal/terminal.h"
 #include "gk/gk.h"
-#include "mem.h"
+#include <mem/mem.h>
 #include "drivers/ata.h"
 #include "fs/fs.h"
 #include "fs/fat16.h"

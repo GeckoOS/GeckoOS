@@ -1,5 +1,5 @@
 #include "drives.h"
-#include "../mem.h"
+#include <mem/mem.h>
 #include "ata.h"
 #include "../terminal/terminal.h"
 #include "../drivers/drives.h"

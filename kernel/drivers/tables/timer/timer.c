@@ -1,9 +1,9 @@
 // Pumpkicks
 
 #include <stdint.h>
-#include "../../../terminal/terminal.h" // for printf
+#include <terminal/terminal.h> // for printf
 #include "../isr/isr.h"
-#include "../../../colors.h"
+#include <colors.h>
 #include "../irq/irq.h"
 
 int timer_ticks = 0;
@@ -13,7 +13,8 @@ void timer_handler(registers_t* r)
 {
     /* Increment our 'tick count' */
     timer_ticks++;
-
+   
+    //switch_task(r);
 /*     Every 18 clocks (approximately 1 second), we will
        display a message on the screen
     if (timer_ticks % 18 == 0)
