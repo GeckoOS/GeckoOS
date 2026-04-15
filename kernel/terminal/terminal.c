@@ -4,9 +4,11 @@
 #include "terminal.h"
 #include "../gk/gk.h"
 #include "../drivers/syscalls.h"
+#include "stdarg.h"
+#include <limits.h>
 #include <stdint.h>
 
-uint16_t terminal_column = 0; 
+uint16_t terminal_column = 0;
 uint16_t terminal_row = 0;
 static int history_count = 0;
 static int history_head  = 0;
@@ -20,7 +22,7 @@ void putchar(char c, uint8_t color) {
 		terminal_row++;
 	}
 	else if (c == '\t') {
-		for (int j = 0; j < 4; j++) { 
+		for (int j = 0; j < 4; j++) {
             putchar(' ', color); // Print 4 spaces when tab is pressed
         }
 	}
@@ -146,7 +148,7 @@ void input(unsigned char* buff, size_t buffer_size, uint8_t color) {
                 int slot = (history_head - browse_idx + HISTORY_SIZE) % HISTORY_SIZE;
                 src = history_entries[slot];
             }
-            
+
             // Clear the line in the framebuffer
             for (size_t k = 0; k < terminal_column-start_x; k++) {
                 size_t col = (start_x + k) % VGA_TEXT_WIDTH;
@@ -172,7 +174,7 @@ void input(unsigned char* buff, size_t buffer_size, uint8_t color) {
             continue;
         }
         unsigned char ascii = scancode_to_ascii(sc);
-    
+
         // Exit input if enter is pressed
         if (ascii == '\n') break;
 
@@ -182,7 +184,7 @@ void input(unsigned char* buff, size_t buffer_size, uint8_t color) {
                 if (terminal_column > 0) {
                     terminal_column--;
                 }
-                else if (terminal_row > 0) { 
+                else if (terminal_row > 0) {
                     terminal_row = VGA_TEXT_WIDTH - 1;
                     terminal_row--;
                 }
@@ -190,7 +192,7 @@ void input(unsigned char* buff, size_t buffer_size, uint8_t color) {
                 putentryat(' ', color, terminal_column, terminal_row);
                 buff_count--;
                 buff[buff_count] = 0;
-                
+
                 // Update cursor
                 move_tcursor(terminal_column, terminal_row);
             }
@@ -200,7 +202,7 @@ void input(unsigned char* buff, size_t buffer_size, uint8_t color) {
         // Display the character entered and place it in the input buffer
         if (buff_count < buffer_size - 1 && ascii >= 0x20) {
             buff[buff_count] = ascii;
-            
+
             putchar(ascii, color);
             buff_count++;
         }
@@ -228,7 +230,7 @@ void print_hex(uint32_t n)
         {
             continue;
         }
-    
+
         if (tmp >= 0xA)
         {
             noZeroes = 0;
@@ -240,7 +242,7 @@ void print_hex(uint32_t n)
             putchar( tmp+'0', VGA_COLOR_WHITE);
         }
     }
-  
+
     tmp = n & 0xF;
     if (tmp >= 0xA)
     {
@@ -251,4 +253,42 @@ void print_hex(uint32_t n)
         putchar( tmp+'0', VGA_COLOR_WHITE);
     }
 
+}
+void printf(const char* fmt, ...) {
+    va_list list;
+    va_start(list, fmt);
+
+    int i = 0;
+    int r = 0;
+    while (fmt[i]) {
+        if (r) { r--; }
+        switch (fmt[i]) {
+            case '%':
+                switch (fmt[i+1]) {
+                    case 'p':
+                    case 'x':
+                        print_hex(va_arg(list, uint32_t));
+                        r++;
+                        break;
+                    case 'd':
+                        print_int(va_arg(list, int));
+                        r++;
+                        break;
+                    case 's':
+                        print(va_arg(list, char*));
+                        r++;
+                        break;
+                    case '%':
+                        putchar('%', VGA_COLOR_WHITE);
+                        break;
+                    default: break;
+                } break;
+            default:
+                if (r) putchar(fmt[i], VGA_COLOR_WHITE);
+                break;
+        }
+        ++i;
+    }
+
+    va_end(list);
 }

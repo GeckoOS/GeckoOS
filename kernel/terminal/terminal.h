@@ -32,6 +32,6 @@ static void history_push(unsigned char* buf);
 
 void input(unsigned char* buff, size_t buffer_size, uint8_t color);
 
-DECL_SYSCALL1(print, char*);
+void printf(const char* fmt, ...);
 
 #endif

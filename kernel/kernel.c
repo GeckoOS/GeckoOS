@@ -63,6 +63,8 @@ void _entry() {
     // initialise_syscalls();
     // switch_to_user_mode();
 
+    printf("%d%x%s", 10, INT_MAX - 1);
+
     kmain();
 }
 
