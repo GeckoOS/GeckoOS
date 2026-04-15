@@ -11,12 +11,15 @@ TRUNC_AMNT = 131072
 # Objcopy (to translate elf to bin)
 OBJCOPY = objcopy
 OBJCOPY_ARGS = -O binary
-CC_FLAGS = -m32 -ffreestanding -nostdlib -fno-builtin -fno-stack-protector -g -c
+include_folder = kernel/include kernel/drivers kernel
+CC_FLAGS = -m32 -ffreestanding -nostdlib -fno-builtin -fno-stack-protector -g -c  $(addprefix -I,$(include_folder))
 AS_FLAGS = -f bin
 LD_FLAGS = -m elf_i386
-KERNEL_OBJECTS = kernel/kernel.o kernel/mem.o
+KERNEL_OBJECTS = kernel/kernel.o kernel/mem/mem.o kernel/mem/physical_mem/physical_mem.o kernel/mem/virtual_mem/paging.o kernel/process/process.o
+
 DRIVER_OBJECTS = kernel/drivers/vga.o kernel/drivers/keyboard.o kernel/drivers/tables/idt/idt_c.o kernel/drivers/tables/idt/idt_s.o \
-	kernel/drivers/tables/isr/isr_c.o kernel/drivers/tables/isr/isr_s.o kernel/drivers/tables/irq/irq_c.o kernel/drivers/tables/irq/irq_s.o kernel/drivers/tables/timer/timer.o
+	kernel/drivers/tables/isr/isr_c.o kernel/drivers/tables/isr/isr_s.o kernel/drivers/tables/irq/irq_c.o kernel/drivers/tables/irq/irq_s.o kernel/drivers/tables/timer/timer.o 
+
 MISC_OBJECTS = kernel/colors.o kernel/terminal/terminal.o kernel/commands.o kernel/layouts/kb_layouts.o \
                kernel/gk/gk_lexer.o kernel/gk/gk_parser.o kernel/gk/gk_interp.o \
                kernel/editor/editor.o \
@@ -57,7 +60,8 @@ kernel/drivers/tables/irq/irq_s.o: kernel/drivers/tables/irq/irq.s
 	$(AS) -felf32 $< -o $@
 kernel/drivers/tables/isr/isr_s.o: kernel/drivers/tables/isr/isr.s
 	$(AS) -felf32 $< -o $@
-
+kernel/drivers/tables/paging/paging_s.o:kernel/drivers/tables/paging/paging.s
+	$(AS) -felf32 $< -o $@
 # Link all kernel objects 
 kernel.elf: $(KERNEL_OBJECTS) $(DRIVER_OBJECTS) $(MISC_OBJECTS) $(FS_OBJECTS)
 	$(LD) $(LD_FLAGS) -T linker.ld $(KERNEL_OBJECTS) $(DRIVER_OBJECTS) $(MISC_OBJECTS) $(FS_OBJECTS) -o kernel.elf
@@ -67,6 +71,7 @@ kernel.bin: kernel.elf
 os.img: bootloader/boot.bin kernel.bin
 	cat bootloader/boot.bin kernel.bin > os.img
 # Launch the image in QEMU
+
 run: os.img
 	qemu-system-i386 -s -drive format=raw,file=os.img -usb
 
@@ -81,7 +86,8 @@ run-fat16: os.img fat16.img
 	qemu-system-i386 -s \
 	  -drive format=raw,file=os.img \
 	  -drive format=raw,file=fat16.img \
-	  -usb
+	  -usb \
+	  -d int
 clean:
 	rm -f $(KERNEL_OBJECTS) $(DRIVER_OBJECTS) $(MISC_OBJECTS) $(FS_OBJECTS) kernel.elf kernel.bin bootloader/bootc.elf bootloader/bootc.bin bootloader/boot.bin
 	rm -f fat16.img

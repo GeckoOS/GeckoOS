@@ -1,122 +1,188 @@
 #include "process.h"
-#include "../drivers/tables/paging/page_allocator.h"
+#include "fs/fs.h"
+#include "gk/gk.h"
+#include "mem/mem.h"
+#include "mem/physical_mem/physical_mem.h"
+#include "mem/virtual_mem/paging.h"
+#include "ports.h"
+#include "stdint.h"
+#include "tables/isr/isr.h"
+#include "terminal/terminal.h"
+#include "vga.h"
 
+#define MAX_PROCESSES 16
 
-process_t* process_list[MAX_PROCESSES]; //the process array so the kernel can manage themS
-uint32_t process_count = 0; //how many processes you have hope it s less than max
+static uint32_t current_index = 0;
+uint32_t nr_processes         = 0;
+uint32_t nextid               = 0;
 
-//idk if i should explain something here
-process_t *current_process; 
-uint32_t avilable_pid = 0; //process_id
-uint32_t current_index = 0;
+// going to use a queue
+//  for scheduling processes
+//Queue in c yeye
+typedef struct {
+    Process *data[MAX_PROCESSES];
+    unsigned int head;
+    unsigned int tail;
+} Queue;
+Queue *process_queue = NULL;
 
+int enqueue(Queue **q, Process *v)
+{
+    CLI();
 
-static inline uint32_t read_esp(void) {
-    uint32_t esp;
-    asm volatile("mov %%esp, %0" : "=r"(esp));
-    return esp;
-}
-void setup_process_stack(process_t *p, uint32_t entry) {
-    uint32_t *stack = (uint32_t *)alloc_page() + 1024;
+    if (*q == NULL) {
+        *q = kmalloc(sizeof(Queue));
 
-    //magic here (actually just how ret instruction in asm works and the flags code segment and all that)
-    *(--stack) = (uint32_t)process_exit; // return address
-    // CPU will iret into this
-    *(--stack) = 0x202; // EFLAGS
-    *(--stack) = 0x08;  // CS
-    *(--stack) = entry; // EIP
+        if (*q == NULL) {
+            STI();
+            return -1;
+        }
 
-    // pusha registers
-    for (int i = 0; i < 8; i++)
-        *(--stack) = 0;
-
-    p->esp = (uint32_t)stack;
-}
-process_t *create_process(uint32_t entry_point) {
-
-    process_t *p = (process_t *)alloc_page(); 
-
-    p->pid = avilable_pid++;
-    //p->eip = entry_point;
-
-    //allocate page directory
-    p->page_directory = (uint32_t *)alloc_page();
-
-    //clear page directory
-    for (int i = 0; i < 1024; i++)
-        p->page_directory[i] = 0;
-
-    // map kernel space 
-    for (int i = 768; i < 1024; i++) {
-        extern uint32_t page_directory[];
-        p->page_directory[i] = page_directory[i];
+        (*q)->head = 0;
+        (*q)->tail = 0;
     }
 
-    // user stack
-    void *stack = alloc_page();
+    STI();
 
-    // map stack at high user address
-    map_page(p->page_directory, 0xBFFFF000, (uint32_t)stack, 3);
+    unsigned int next = ((*q)->tail + 1) & (MAX_PROCESSES - 1);
 
-    setup_process_stack(p, entry_point);
-    process_list[process_count++] = p;
+    if (next == (*q)->head)
+        return -1;
+
+    (*q)->data[(*q)->tail] = v;
+    (*q)->tail             = next;
+
+    return 0;
+}
+Process *dequeue(Queue *q)
+{
+    if (q->head == q->tail)
+        return NULL;
+
+    Process *p = q->data[q->head];
+    q->head    = (q->head + 1) & (MAX_PROCESSES - 1);
     return p;
 }
-process_t *next_process(void) {
-    for (int i = 0; i < process_count; i++) {
-        // the current_index of the current active process
-        current_index = (current_index + 1) % process_count;
-        // shouldn t run dead processes but idk
-        if (process_list[current_index]->state == PROCESS_READY)
-            return process_list[current_index];
-    }
-    // if there are no processes i think you got bigger problems but idk
-    return current_process;
+
+page_directory_t *new_address_space(void)
+{
+    page_directory_t *rtn = kmalloc(4096);
+    // print_int((uint32_t)rtn);
+    if (!rtn)
+        return NULL;
+
+    memset(rtn, 0, sizeof *rtn);
+    return rtn;
 }
-void schedule(registers_t *regs) {
-    // Save current process state
-   if (current_process) {
-        //push the regs
-        current_process->esp = (uint32_t)regs;
+// Creates a process and a thread for it and returns the pid of it
+uint32_t create_process(void *entry_point)
+{
+    page_directory_t *address_space = new_address_space();
 
-        if (current_process->state == PROCESS_TERMINATED) {
-            free_process(current_process);
-        }
+    Process *proc      = kmalloc(sizeof(Process));
+    proc->id           = ++nextid;
+    proc->page_dir     = address_space;
+    proc->priority     = 1;
+    proc->state        = ACTIVE;
+    proc->thread_count = 1;
+
+    // Create thread
+    Thread *main_thread       = &proc->threads[0];
+    main_thread->kernel_stack = NULL;
+    main_thread->parent       = proc;
+    main_thread->priority     = 1;
+    main_thread->state        = ACTIVE;
+    main_thread->stack        = NULL;
+    main_thread->stack_limit =
+        (void *)((uint32_t)main_thread->stack + PAGE_SIZE);
+
+    // Load program into memory; The open file FD addresses and Program Buffer
+    //   addresses are virtual and mapped to valid physical memory from
+    //   malloc(), syscall_open(), etc.
+    uint8_t *pgm_buf      = NULL;
+    uint32_t pgm_size     = 0;
+    main_thread->pgm_buf  = (uint32_t)pgm_buf;
+    main_thread->pgm_size = pgm_size;
+
+    memset(&main_thread->regs, 0, sizeof main_thread->regs);
+    main_thread->regs.eip    = (int32_t)entry_point;
+    main_thread->regs.eflags = 0x200;
+
+    // Create & Map userspace stack
+    void *stack     = (void *)((uint8_t *)main_thread->pgm_buf +
+                           main_thread->pgm_size + PAGE_SIZE);
+    void *phys_addr = allocate_blocks(1); // Only 4KB for now
+    map_address(address_space, (uint32_t)phys_addr, (uint32_t)stack,
+                PTE_PRESENT | PTE_READ_AND_WRITE);
+    // Create & map userspace memory for arguments (heap?), above stack
+    void *args = (void *)((uint8_t *)stack + PAGE_SIZE);
+    phys_addr  = allocate_blocks(1);
+    map_address(address_space, (uint32_t)phys_addr, (uint32_t)args,
+                PTE_PRESENT | PTE_READ_AND_WRITE);
+
+    main_thread->regs.esp = (uint32_t)main_thread->stack;
+    main_thread->regs.ebp = main_thread->regs.esp;
+
+    nr_processes++;
+
+    if (enqueue(&process_queue, proc) != 0) {
+        printc("WAKE UP MTF", VGA_COLOR_RED);
     }
-    // Pick next process
-    process_t *next = next_process();
-    current_process = next;
+    print_int(proc->id);
 
-    //switch address space
-    asm volatile("mov %0, %%cr3" ::"r"(next->page_directory));
+	//TODO:add a real scheduler  this just takes each process and executes it
+    switch_task();
 
-    //switch stack for real
-    asm volatile("mov %0, %%esp" ::"r"(next->esp));
+    return proc->id;
+
 }
-// Terminates the process (it was not a question)
-void process_exit() {
-    current_process->state = PROCESS_TERMINATED;
 
-    // Force scheduler to run
-    asm volatile("int $32"); // trigger timer interrupt manually
-}
-// does what it says cleans up after a process remember you have limited memory
-void free_process(process_t *p) {
-    // free stack
-    free_page((void *)(p->esp & ~0xFFF));
+void execute_process(Process *proc)
+{
+    // Get running process
+    ;
+    print_int((uint32_t)proc->id);
+    if (!proc->id || !proc->page_dir) {
 
-    // free page directory
-    free_page(p->page_directory);
-
-    for (int i = 0; i < process_count; i++) {
-        if (process_list[i] == p) {
-            for (int j = i; j < process_count - 1; j++)
-                process_list[j] = process_list[j + 1];
-
-            process_count--;
-            break;
-        }
+        return;
     }
 
-    free_page(p);
+    // Get EIP/ESP of main thread
+    int32_t entry_point = proc->threads[0].regs.eip;
+    uint32_t proc_stack = proc->threads[0].regs.esp;
+
+    // Switch to process address space
+    set_page_directory(proc->page_dir);
+
+    int32_t stack = 0;
+
+    __asm__ __volatile__("mov %%esp, %0" : "=a"(stack));
+
+    // Execute process in kernel mode
+    __asm__ __volatile__("cli\n"
+                         "pushl $return_label\n"
+                         "pushl $0x200\n"   // EFLAGS
+                         "pushl $0x08\n"    // CS (kernel code segment)
+                         "pushl %[entry]\n" // EIP
+
+                         "iretl\n"
+                         "return_label:"
+                         :
+                         : [entry] "r"(entry_point)
+                         : "memory");
+	
+}
+// Very Fair process scheduler FIFO if a process blocks the cpu IDGAF
+void switch_task()
+{
+    Process *v;
+    v = dequeue(process_queue);
+    print_int(v->id);
+    if (v != 0) {
+        print_int(v->id);
+        execute_process(v);
+    } else {
+
+        return;
+    }
 }
