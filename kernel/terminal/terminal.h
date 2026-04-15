@@ -3,6 +3,7 @@
 
 #include "../drivers/keyboard.h"
 #include "../drivers/vga.h"
+#include "../drivers/syscalls.h"
 
 #define HISTORY_SIZE 10
 static unsigned char history_entries[HISTORY_SIZE][512];
@@ -30,5 +31,7 @@ void terminal_clear(uint8_t color);
 static void history_push(unsigned char* buf);
 
 void input(unsigned char* buff, size_t buffer_size, uint8_t color);
+
+DECL_SYSCALL1(print, char*);
 
 #endif

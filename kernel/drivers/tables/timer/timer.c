@@ -1,9 +1,8 @@
 // Pumpkicks
 
 #include <stdint.h>
-#include "../../../terminal/terminal.h" // for printf
+#include "../../../terminal/terminal.h" // for outb
 #include "../isr/isr.h"
-#include "../../../colors.h"
 #include "../irq/irq.h"
 
 int timer_ticks = 0;
@@ -38,7 +37,6 @@ void timer_install()
     irq_install_handler(0, timer_handler);
 }
 
-// FINALLY, the cpu was returning an int 6, but i set some variables to a pointer, and then it began working!
 void timer_wait(int ticks)
 {
     unsigned long eticks;

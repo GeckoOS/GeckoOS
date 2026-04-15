@@ -55,5 +55,6 @@ void set_layout(KeyboardLayout layout);
 void keyboard_install();
 void keyboard_handler(registers_t* r);
 
+extern bool keyboard_initialized;
 
 #endif

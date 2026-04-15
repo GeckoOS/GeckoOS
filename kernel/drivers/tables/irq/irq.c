@@ -94,21 +94,20 @@ void irq_install()
 *  interrupt at BOTH controllers, otherwise, you only send
 *  an EOI command to the first controller. If you don't send
 *  an EOI, you won't raise any more IRQs */
+void irq_ack(uint8_t irq) {
+    if(irq >= 0x28)
+        outb(0xA0, 0x20);
+    outb(0x20, 0x20);
+}
 void irq_handler(registers_t regs)
 {
-   // Send an EOI (end of interrupt) signal to the PICs.
-   // If this interrupt involved the slave.
-   if (regs.int_no >= 40)
-   {
-       // Send reset signal to slave.
-       outb(0xA0, 0x20);
-   }
-   // Send reset signal to master. (As well as slave, if necessary).
-   outb(0x20, 0x20);
-
+   // print_int(regs.int_no - 32);
+   // print(" "); print_int((uint32_t)&irq_routines[regs.int_no - 32] != 0);
+   // print("\n");
    if (irq_routines[regs.int_no - 32] != 0)
    {
        isr_t handler = irq_routines[regs.int_no - 32];
        handler(&regs);
    }
+   irq_ack(regs.int_no);
 } 

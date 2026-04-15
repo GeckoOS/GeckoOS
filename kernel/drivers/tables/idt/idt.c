@@ -1,5 +1,5 @@
 #include "idt.h"
-#include "../../../mem.h"
+#include "../../../mem/mem.h"
 #include "../../../ports.h"
 #include "../../../colors.h"
 #include "../../../terminal/terminal.h"

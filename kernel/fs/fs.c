@@ -1,5 +1,6 @@
 #include "fs.h"
 #include "fat16.h"
+#include <limits.h>
 
 struct drive_fs_t *fs_drive_open( struct kdrive_t *drive )
 {
@@ -17,8 +18,12 @@ struct drive_fs_t *fs_partition_open( struct kdrive_t *drive, struct partition_t
 	{
 	case FS_FAT16:
 		return fat16_drive_open(drive, partition);
-	}
-	return 0;
+        case FS_NONE:
+        case FS_FAT12:
+        case FS_FAT32:
+          break;
+        }
+        return 0;
 }
 
 void fs_free_entries( struct fs_entries_t *entries )

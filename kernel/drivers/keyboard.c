@@ -5,9 +5,8 @@
 #include "keyboard.h"
 #include "../layouts/kb_layouts.h"
 #include "../ports.h"
-#include "../terminal/terminal.h"
 #include "tables/irq/irq.h"
-#include "vga.h"
+#include <stdbool.h>
 // Layout map by scancodes.
 // Add layout via set_layout()
 static char ScASCII[128];
@@ -18,6 +17,8 @@ volatile int kb_ready = 0;
 volatile scancode_t last_scancode;
 // Key State (what control keys are pressed currently)
 KeyState KEYSTATE;
+
+bool keyboard_initialized = false;
 
 unsigned char scancode_to_ascii(scancode_t scancode) {
     bool shift = KEYSTATE.ShiftL || KEYSTATE.ShiftR; // Is either Left Shift or Right Shift pressed
@@ -55,7 +56,6 @@ scancode_t ps2_kb_wfi() {
     //halts the process while kb is not ready hlt gets waken up by any interrupt including the timer
     while (!kb_ready) {
         asm volatile("hlt");
-
     }
     //sets ready to false
     kb_ready = 0;
@@ -112,5 +112,6 @@ void keyboard_handler(registers_t* r)
 }
 //installing the handler of the pic
 void keyboard_install(){
+    keyboard_initialized = true;
     irq_install_handler(1, keyboard_handler);
 }

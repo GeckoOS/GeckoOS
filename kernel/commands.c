@@ -6,7 +6,7 @@
 #include "layouts/kb_layouts.h"
 #include "terminal/terminal.h"
 #include "gk/gk.h"
-#include "mem.h"
+#include "mem/mem.h"
 #include "drivers/ata.h"
 #include "fs/fs.h"
 #include "fs/fat16.h"
@@ -62,6 +62,8 @@ static Command commands[] = {
     { "passwd",       cmd_passwd       },
     { "su",           cmd_su           },
     { "logout",       cmd_logout       },
+
+    { "syscall",       cmd_syscall       },
 };
 
 static int num_commands = sizeof(commands) / sizeof(commands[0]);
@@ -534,7 +536,7 @@ static void cmd_meminfo(uint8_t color) {
     printc("\nMemory:\n", color);
     printc("  Heap base : 0x200000\n", color);
     printc("  (exact used bytes depend on runtime allocations)\n", color);
-    printc("  Total RAM  : detected via BIOS e820 (not yet parsed)\n", color);
+    printc("  Total RAM  : detected via BIOS e820 (not yet parsed)\n", color); // Very accurate!
     printc("\n", color);
 }
 
@@ -643,6 +645,9 @@ static void cmd_su(uint8_t color) {
     } else {
         printc("Invalid credentials.\n", VGA_COLOR_RED);
     }
+}
+static void cmd_syscall(uint8_t color) {
+    // execute_syscall(1, 13);
 }
 
 //ember2819: logout

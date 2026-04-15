@@ -60,5 +60,6 @@ extern void isr31();
 extern void idt_flush(uint32_t); // from assembly
 void init_idt();
 extern void idt_set_gate(uint8_t num, uint32_t base, uint16_t sel, uint8_t flags);
+void idt_register_interrupt(uint8_t i, uint32_t callback);
 
 #endif

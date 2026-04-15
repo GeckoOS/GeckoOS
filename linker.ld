@@ -8,13 +8,16 @@ SECTIONS
 
     .text   : { 
         *(.text.entry)
-        *(.text)   
+        *(.text)
+        . = ALIGN(4096);
     }
     
-    .rodata : { *(.rodata) }
-    .data   : { *(.data)   }
+    .rodata : { *(.rodata) . = ALIGN(4096); }
+    .data   : { *(.data) . = ALIGN(4096);   }
     .bss    : {
         *(.bss)
         *(COMMON)
+        . = ALIGN(4096);
     }
+    end = .;
 }

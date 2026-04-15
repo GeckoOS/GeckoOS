@@ -1,6 +1,6 @@
 //ember2819
 #include "users.h"
-#include "../mem.h"
+#include "../mem/mem.h"
 #include "../terminal/terminal.h"
 #include "../drivers/vga.h"
 #include <stdint.h>

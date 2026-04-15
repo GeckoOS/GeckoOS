@@ -1,0 +1,1 @@
+please include the directories: kernel, kernel/include and kernel/drivers to your text editor autocomplete

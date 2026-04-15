@@ -1,8 +1,9 @@
 #include "../drivers/keyboard.h"
 #include "../drivers/vga.h"
-#include "../mem.h"
+#include "../mem/mem.h"
 #include "terminal.h"
 #include "../gk/gk.h"
+#include "../drivers/syscalls.h"
 #include <stdint.h>
 
 uint16_t terminal_column = 0; 
@@ -102,7 +103,6 @@ static void history_push(unsigned char* buf) {
     history_head = (history_head + 1) % HISTORY_SIZE;
     if (history_count < HISTORY_SIZE) history_count++;
 }
-
 
 void input(unsigned char* buff, size_t buffer_size, uint8_t color) {
     size_t buff_count = 0; //Initialise the buffer count

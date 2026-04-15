@@ -1,7 +1,7 @@
 #ifndef DRIVE_FS_H
 #define DRIVE_FS_H
 
-#include "../mem.h"
+#include "../mem/mem.h"
 #include "../partition/partition.h"
 #include "../drivers/drives.h"
 #include "stdint.h"
