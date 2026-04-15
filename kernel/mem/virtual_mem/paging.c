@@ -1,9 +1,9 @@
 
 #include "paging.h"
 
-#include "../physical_mem/physical_mem.h"
 #include <stdint.h>
-
+#include <mem/mem.h>
+#include <mem/physical_mem/physical_mem.h>
 
 static page_directory_t *current_page_directory = 0;
 static physical_address_t current_pd_adress     = 0;
