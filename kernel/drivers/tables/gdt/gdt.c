@@ -20,6 +20,8 @@ void init_gdt()
    gdt_flush((uint32_t)&gdt_ptr);
 
    tss_write(5, 0x10, 0);
+   extern void tss_flush();
+   tss_flush();
 }
 
 // Set the value of one GDT entry.

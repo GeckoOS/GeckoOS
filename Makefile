@@ -59,7 +59,7 @@ os.img: bootloader/boot.bin kernel.bin
 
 # Launch the image in QEMU
 run: os.img
-	qemu-system-i386 -s -drive format=raw,file=os.img -usb
+	qemu-system-i386 -s -drive format=raw,file=os.img -usb -monitor stdio
 
 fat16.img:
 	dd if=/dev/zero of=fat16.img bs=1M count=16
