@@ -22,9 +22,6 @@
 #ifndef	_SYS_TYPES_H
 #define	_SYS_TYPES_H	1
 
-#include <features.h>
-
-__BEGIN_DECLS
 
 #include <sys/typebits.h>
 
@@ -158,7 +155,5 @@ typedef __fsfilcnt_t fsfilcnt_t; /* Type to count file system inodes.  */
 #  define __fsfilcnt_t_defined
 # endif
 #endif
-
-__END_DECLS
 
 #endif /* sys/types.h */
