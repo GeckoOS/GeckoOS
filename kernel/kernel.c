@@ -8,8 +8,9 @@
 #include "drivers/keyboard.h"
 #include "drivers/drives.h"
 #include "layouts/kb_layouts.h"
-#include "mem/physical_mem/physical_mem.h"
-#include "mem/virtual_mem/paging.h"
+#include "mem.h"
+#include "mem/paging.h"
+#include "multiboot.h"
 #include "terminal/terminal.h"
 #include "commands.h"       // Included by Ember2819: Adds commands
 #include "colors.h"         // Added by MorganPG1 to centralise colors into one file
@@ -17,21 +18,22 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <cpuid.h>
 
 void process_input(unsigned char *buffer) {
     run_command(buffer, TERM_COLOR);
 }
 
-static void kmain();
-
-extern uint32_t end;
+static void kmain(multiboot_info_t* multiboot);
 
 __attribute__((section(".text.entry")))
-void _entry() {
-    initialize_memory_manager((uint32_t)&end, BLOCK_SIZE * 10);
-    initialize_memory_region((uint32_t)&end, BLOCK_SIZE * 10);
-    initialize_virtual_memory_manager();
-    kalloc_init();
+void kernel_main(multiboot_info_t* multiboot) {
+    // initialize_memory_manager((uint32_t)&end, BLOCK_SIZE * 100);
+    // initialize_memory_region((uint32_t)&end, BLOCK_SIZE * 100);
+    // initialize_virtual_memory_manager();
+    // kalloc_init();
+    // page_init();
+    // for (;;);
 
     // Initialise display
     vga_clear(TERM_COLOR);
@@ -52,14 +54,17 @@ void _entry() {
 
     printc("User system initialised. Default accounts: root / guest\n", VGA_COLOR_LIGHT_GREY);
 
-    kmain();
+    kmain(multiboot);
 }
 
-static void kmain()
+static void kmain(multiboot_info_t* multiboot)
 {
     get_kdrive(0);
 
     do_login_prompt();
+
+    // int ebx, unused;
+    // __cpuid(0, unused, ebx, unused, unused);
 
     while (1) {
         // Build the prompt: "username> "

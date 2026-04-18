@@ -1,30 +1,55 @@
-// bonk enjoyer (dorito girl)
+#ifndef MEM_H
+#define MEM_H
 
-// Should i write down everything i did? (Pumpkicks)
-#ifndef _MEM_H
-#define _MEM_H
-#include <string.h>
-//idk but they say aligning is important
-#define ALIGN8(x) (((x) + 7) & ~7)
-//this is block of memory
-typedef struct block block ;
-struct block{
-    int size;
-    int free;
-    block* next;
-    
-};
+#include "stddef.h"
+#include "stdint.h"
 
-static block* find_free_block(unsigned long size) ;
-//helper functions to allocate memory
-static block* find_free_block(unsigned long size) ;
-static block* create_block(unsigned long size);
-static void split_block(block * b,unsigned long size);
+#define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
-void kalloc_init();
-void* kmalloc(unsigned long size);
+#define HEAP_SIZ 1024
 
-void kfree(void* p);
-void combine_blocks();
+// y'know what, i surrender living off below 1MB. a cool kernel can't just only use 25KB of memory (b)
+extern uint8_t end;
+#define EXT_MEM_BASE (uint32_t)&end 
+#define EXT_MEM_SIZ  ((size_t)1 << 20) // 1MB o' size
+
+extern uint8_t __bss_start__;
+extern uint8_t __bss_end__;
+
+#define BSS_END   (&__bss_end__)
+#define BSS_START (&__bss_start__)
+
+#define ALLOC_EXTRALOG 0
+#define PRINT_ALLOCS   0
+
+struct bios_da {
+  uint16_t com_port[4];
+  uint16_t lpt_port[3];
+  uint16_t ebda_addr;
+  uint16_t flags;
+  uint8_t  pcjr;
+  uint16_t usable_memory;
+} __attribute__((packed));
+
+void parse_bda();
+
+void zero_bss();
+
+void kmalloc_init();
+
+#if !ALLOC_EXTRALOG
+void *malloc(size_t size);
+#else
+#define malloc(size) ({ void *malloc_log(size_t siz); void *ptr = malloc_log((size)); printkf("malloc %d at line %d file %s\n", (size), __LINE__, __FILE__); ptr; })
+#endif
+
+void free(void *ptr);
+
+void  *malloc_align(size_t siz, size_t align);
+void   free_align(void *ptr);
+
+size_t getused();
+size_t getmaxused();
+size_t gettrueused();
 
 #endif

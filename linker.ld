@@ -1,21 +1,35 @@
-/* By Ember2819, your welcome dorito girl. Took me way too long to figure out how to make this... */
-
 ENTRY(_entry)
-
 SECTIONS
 {
-    . = 0x100000;
+    /* position the linker at 1M */
+    . = 1M;
 
-    .text   : { 
-        *(.text.entry)
-        *(.text)   
+    /* executable data */
+    .text : ALIGN(4K)
+    {
+        *(.multiboot)
+        *(.text)
     }
-    
-    .rodata : { *(.rodata) }
-    .data   : { *(.data)   }
-    .bss    : {
-        *(.bss)
+
+    /* Read-only data */
+    .rodata : ALIGN(4K)
+    {
+        *(.rodata)
+    }
+
+    /* Read-write data (initialized) */
+    .data : ALIGN(4K)
+    {
+        *(.data)
+    }
+
+    /* Read-write data (uninitialized) */
+    .bss : ALIGN(4K)
+    {
+        __bss_end__ = .;
         *(COMMON)
+        *(.bss)
+        __bss_start__ = .;
     }
     end = .;
 }

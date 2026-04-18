@@ -26,9 +26,9 @@ A collaborative OS project where contributors build a custom operating system fr
 
 ## Roadmap
 
-- [x] Dynamic Memory Management
+- [x] Dynamic Memory Management (Not fully yet)
 - [x] Shell with basic command system
-- [x] Storage management/Filesystem
+- [x] Storage management/Filesystem (Not fully yet)
 - [ ] Internet Access
 - [ ] Package Manager
 - [ ] First Official Release
@@ -63,19 +63,18 @@ Add your name to the contributors list when you contribute!
 
 **Debian/Ubuntu:**
 ```bash
-sudo apt install build-essential binutils nasm clang qemu-system-x86
+sudo apt install build-essential binutils nasm clang qemu-system-x86 grub
 ```
 
 **Arch:**
 ```bash
-sudo pacman -S base-devel binutils nasm clang qemu-system-x86 ccache
+sudo pacman -S base-devel binutils nasm clang qemu-system-x86 grub
 ```
 
 ### Build Commands
 
-- `make all` - Produces `os.img`
+- `make all` - Produces `boot.iso` and run it
 - `make run` - Builds and runs in QEMU
-  - When prompted for boot drive, press "1"
 
 ## Contact
 

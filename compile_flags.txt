@@ -1,1 +1,3 @@
 -Ikernel
+-Ikernel/drivers
+-Ikernel/include

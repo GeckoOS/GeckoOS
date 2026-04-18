@@ -3,11 +3,7 @@
 // Updated all ComoState/COMOS references to GkState/GK
 //ember2819 end
 #include "gk.h"
-
-#define is_digit(c) c >= '0' && c <= '9'
-#define is_alpha(c) (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_'
-#define is_alnum(c) is_alpha(c) || is_digit(c)
-#define is_space(c) c == ' ' || c == '\t'
+#include <string.h>
 
 static int gk_strlen(const char* s) {
     int n = 0; while (s[n]) n++; return n;

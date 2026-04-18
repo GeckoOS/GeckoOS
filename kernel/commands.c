@@ -12,6 +12,7 @@
 #include "fs/fat16.h"
 #include "users/users.h"
 #include <stdint.h>
+#include <string.h>
 #define PERM_DENIED(color) \
     do { printc("\nPermission denied.\n", VGA_COLOR_RED); return; } while(0)
 

@@ -4,6 +4,7 @@
 #include "../../../colors.h"
 #include "../../../terminal/terminal.h"
 #include "../irq/irq.h"
+#include <string.h>
 
 idt_entry_t idt_entries[256];
 idt_ptr_t   idt_ptr;

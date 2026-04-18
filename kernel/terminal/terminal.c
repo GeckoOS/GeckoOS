@@ -5,6 +5,7 @@
 #include "../gk/gk.h"
 #include "include/stdarg.h"
 #include <stdint.h>
+#include <string.h>
 
 uint16_t terminal_column = 0;
 uint16_t terminal_row = 0;
@@ -103,7 +104,6 @@ static void history_push(unsigned char* buf) {
     history_head = (history_head + 1) % HISTORY_SIZE;
     if (history_count < HISTORY_SIZE) history_count++;
 }
-
 
 void input(unsigned char* buff, size_t buffer_size, uint8_t color) {
     size_t buff_count = 0; //Initialise the buffer count
@@ -262,6 +262,10 @@ void printf(const char* fmt, ...) {
                 case 's':
                     r += 2;
                     print(va_arg(list, char*));
+                    break;
+                case '%':
+                    r += 2;
+                    putchar('%', VGA_COLOR_WHITE);
                     break;
                 default: continue;
             }

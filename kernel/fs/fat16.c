@@ -6,6 +6,7 @@
 #include "../partition/partition.h"
 #include "fs.h"
 #include <stdint.h>
+#include <string.h>
 
 typedef struct __attribute__((packed)) {
     uint8_t  jmp_boot[3];        // Jump instruction + NOP
@@ -336,7 +337,7 @@ int fat16_create_file(struct drive_fs_t *fs, char *name,
 	uint32_t root_dir_sectors = ((uint32_t)pvol->bpb.root_entry_count * 32
 		+ pvol->bpb.bytes_per_sector - 1) / pvol->bpb.bytes_per_sector;
 
-	uint8_t *root_buf = kmalloc(root_dir_sectors * drive->sector_size);
+	uint8_t *root_buf = malloc(root_dir_sectors * drive->sector_size);
 	if (drive->read((void*)drive, pvol->root_dir_lba, root_dir_sectors, root_buf) < 0)
 		return -1;
 
@@ -408,7 +409,7 @@ int fat16_write_file(struct drive_fs_t *fs, char *name,
         + pvol->bpb.bytes_per_sector - 1) / pvol->bpb.bytes_per_sector;
 
     // Load entire root directory into a buffer
-    uint8_t *root_buf = kmalloc(root_dir_sectors * drive->sector_size);
+    uint8_t *root_buf = malloc(root_dir_sectors * drive->sector_size);
     if (drive->read((void*)drive, pvol->root_dir_lba, root_dir_sectors, root_buf) < 0)
         return -1;
 
@@ -525,7 +526,7 @@ static struct fs_entries_t fat16_get_root_entries( struct drive_fs_t *fs )
 	root_dir_sectors = ((uint32_t)pvolume->bpb.root_entry_count * 32
 			+ pvolume->bpb.bytes_per_sector - 1)
 		/ pvolume->bpb.bytes_per_sector;
-	sector_buf = kmalloc(root_dir_sectors*fs->drive->sector_size);
+	sector_buf = malloc(root_dir_sectors*fs->drive->sector_size);
 	fs_entries.count = 0;
 	fs_entries.entries = 0;
 
@@ -556,7 +557,7 @@ done_listing_count:
 	if (fs_entries.count == 0)
 		return fs_entries;
 
-	fs_entries.entries = kmalloc(fs_entries.count*sizeof(drive_entry_t));
+	fs_entries.entries = malloc(fs_entries.count*sizeof(drive_entry_t));
 	memset(fs_entries.entries, 0, fs_entries.count*sizeof(drive_entry_t));
 
 	n = 0; /* global entry index across all sectors */
@@ -638,8 +639,8 @@ struct drive_fs_t *fat16_drive_open( struct kdrive_t *drive, struct partition_t 
 		: volume.bpb.total_sectors_32;
 	volume.mounted = 1;
 
-	filesystem = kmalloc(sizeof(struct drive_fs_t));
-	pvolume = kmalloc(sizeof(FAT16_Volume));
+	filesystem = malloc(sizeof(struct drive_fs_t));
+	pvolume = malloc(sizeof(FAT16_Volume));
 	memcpy(pvolume, &volume, sizeof(FAT16_Volume));
 	filesystem->drive = drive;
 	filesystem->userdata1 = pvolume;
@@ -660,7 +661,7 @@ int fat16_delete_file(struct drive_fs_t *fs, char *name) {
     uint32_t root_dir_sectors = ((uint32_t)pvol->bpb.root_entry_count * 32
         + pvol->bpb.bytes_per_sector - 1) / pvol->bpb.bytes_per_sector;
 
-    uint8_t *root_buf = kmalloc(root_dir_sectors * drive->sector_size);
+    uint8_t *root_buf = malloc(root_dir_sectors * drive->sector_size);
     if (drive->read((void*)drive, pvol->root_dir_lba, root_dir_sectors, root_buf) < 0)
         return -1;
 
@@ -743,7 +744,7 @@ int fat16_mkdir(struct drive_fs_t *fs, char *name) {
     uint32_t root_dir_sectors = ((uint32_t)pvol->bpb.root_entry_count * 32
         + pvol->bpb.bytes_per_sector - 1) / pvol->bpb.bytes_per_sector;
 
-    uint8_t *root_buf = kmalloc(root_dir_sectors * drive->sector_size);
+    uint8_t *root_buf = malloc(root_dir_sectors * drive->sector_size);
     if (drive->read((void*)drive, pvol->root_dir_lba, root_dir_sectors, root_buf) < 0)
         return -1;
 

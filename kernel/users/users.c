@@ -4,6 +4,7 @@
 #include "../terminal/terminal.h"
 #include "../drivers/vga.h"
 #include <stdint.h>
+#include <string.h>
 
 static user_t    user_table[MAX_USERS];
 static int       user_count = 0;

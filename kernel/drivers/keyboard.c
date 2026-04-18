@@ -50,8 +50,8 @@ void process_keypress(scancode_t sc) {
 
 scancode_t ps2_kb_wfi() {
     scancode_t scancode;
- 
-    
+
+
     //halts the process while kb is not ready hlt gets waken up by any interrupt including the timer
     while (!kb_ready) {
         asm volatile("hlt");
@@ -61,7 +61,7 @@ scancode_t ps2_kb_wfi() {
     kb_ready = 0;
     //sets the current scancode the last scancode
     scancode = last_scancode;
-    
+
     // Ember2819: arrow key history
     if (scancode == 0xE0) {
         while (!(inb(KEYBOARD_STATUS_PORT) & 1)) {
