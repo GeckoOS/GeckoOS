@@ -5,7 +5,7 @@ CXX = clang++
 # Assembler (for boot.s)
 AS = nasm
 # Linker
-LD = ld.gold
+LD = ld
 # Truncate (to make the kernel.bin divisible by 512)
 TRUNCATE = truncate
 TRUNC_AMNT = 131072
@@ -14,7 +14,7 @@ OBJCOPY = objcopy
 OBJCOPY_ARGS = -O binary
 include_folder = kernel/include kernel/drivers kernel
 CC_FLAGS = -target i386-linux-gnu -march=i686 -m32 -ffreestanding -nostdlib -fno-builtin -fno-stack-protector -g -c $(addprefix -I,$(include_folder)) -fno-asynchronous-unwind-tables \
-	    	-Wall -Wextra -Wpedantic -Wshadow -Wno-pointer-sign -Oz -fno-ident -fno-unwind-tables -fno-pie -falign-functions=1 -falign-loops=1 -fno-plt
+	    	-Wshadow -Wno-pointer-sign -Oz -fno-ident -fno-unwind-tables -fno-pie -falign-functions=1 -falign-loops=1 -fno-plt
 CXX_FLAGS = -march=i686 -m32 -ffreestanding -O2 -Wall -Wextra -fno-exceptions -fno-rtti -c $(addprefix -I,$(include_folder))
 LD_FLAGS = -m elf_i386
 
