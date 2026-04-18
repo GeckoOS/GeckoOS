@@ -43,7 +43,7 @@ A collaborative OS project where contributors build a custom operating system fr
 ## How to Contribute
 
 Submit ideas or feedback:
-- General feedback: [Google Forms]([https://forms.gle/3aL4FJqvc8MZaJJv5](https://docs.google.com/forms/d/e/1FAIpQLSe-euunJ8venpIXOD9_Luy_ZyDaszK5GU0efVQ_QOV7YDge9w/viewform?usp=publish-editor))
+- General feedback: [Google Forms](https://docs.google.com/forms/d/e/1FAIpQLSe-euunJ8venpIXOD9_Luy_ZyDaszK5GU0efVQ_QOV7YDge9w/viewform?usp=publish-editor)
 
 Ways to contribute:
 - Fix typos or improve wording
