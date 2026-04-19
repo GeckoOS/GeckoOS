@@ -11,7 +11,8 @@
 #include <colors.h>         // Added by MorganPG1 to centralise colors into one file
 #include <users/users.h>    // ember2819: user & permission system
 #include <stdint.h>
-
+#include <mem/physical_mem/physical_mem.h>
+#include <mem/virtual_mem/paging.h>
 void process_input(unsigned char *buffer) {
     run_command(buffer, TERM_COLOR);
 }
@@ -21,6 +22,10 @@ static void kmain();
 __attribute__((section(".text.entry")))
 void _entry() {
 
+	initialize_memory_manager(0x300000, 4096*10);
+	initialize_memory_region(0x300000,4096*10);
+	initialize_virtual_memory_manager();
+	
     kalloc_init();
 
     // Initialise display
