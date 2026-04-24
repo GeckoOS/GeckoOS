@@ -64,7 +64,7 @@ static void kmain(multiboot_info_t* multiboot)
 {
     get_kdrive(0);
 
-    printkf("%d\n", multiboot->mem_upper * multiboot->mem_lower);
+    printkf("%d\n", multiboot->mem_upper + multiboot->mem_lower);
 
     do_login_prompt();
 
