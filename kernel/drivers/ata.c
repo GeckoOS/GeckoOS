@@ -39,7 +39,7 @@ static int ata_kdrive_read_sectors( struct kdrive_t *drive, unsigned int lba, un
 {
 	return ata_read_sectors(drive->userdata1, lba, count, buf);
 }
-static ssize_t ata_kdrive_write_sectors( struct kdrive_t *drive, size_t lba, size_t count, const uint8_t *buf)
+static int ata_kdrive_write_sectors( struct kdrive_t *drive, size_t lba, size_t count, const uint8_t *buf)
 {
 	return ata_write_sectors(drive->userdata1, lba, count, buf);
 }

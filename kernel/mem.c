@@ -10,8 +10,8 @@
 void *heap_ptr = 0;
 
 void parse_bda() {
-  printkf("com1 port: %x\n", BDA_ADDR->com_port[0]);
-  printkf("lpt1 port: %x\n", BDA_ADDR->lpt_port[0]);
+  printkf("com1 port: 0x%x\n", BDA_ADDR->com_port[0]);
+  printkf("lpt1 port: 0x%x\n", BDA_ADDR->lpt_port[0]);
   printkf("usable memory: %d KB\n", BDA_ADDR->usable_memory);
   printkf("ebda address: 0x%p\n", BDA_ADDR->ebda_addr << 4);
 }

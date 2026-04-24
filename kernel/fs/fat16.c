@@ -515,8 +515,8 @@ static struct fs_entries_t fat16_get_root_entries( struct drive_fs_t *fs )
 	FAT16_DirEntry *entries;
 	uint32_t root_dir_sectors;
 	uint32_t sector;
-	ssize_t n;
-	ssize_t i;
+	int n;
+	int i;
 	uint8_t first;
 	struct fs_entries_t fs_entries;
 	uint8_t *sector_buf;

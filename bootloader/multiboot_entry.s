@@ -30,3 +30,6 @@ _entry:
     mov esp, stack_top
     push ebx
     call kernel_main
+
+    mov al, 0xfe ; If err (the kernel returns) reboots (maybe go into a bootloop)
+    out 0x64, al
