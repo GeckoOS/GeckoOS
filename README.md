@@ -127,6 +127,6 @@ sudo pacman -S base-devel binutils nasm clang qemu-system-x86 grub
 - mckaylap2304 (V2 Website creator)
 - TheOtterMonarch
 - codecrafter01001
-- Pumpkicks or flixytss
+- Pumpkicks
 - DarkThemeGeek
 - nfoxers
