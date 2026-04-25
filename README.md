@@ -106,6 +106,7 @@ sudo pacman -S base-devel binutils nasm clang qemu-system-x86 grub
 **This video is an old version of the actual OS!**
 ![2026-03-22 20-42-07](https://github.com/user-attachments/assets/4af57872-342f-45e0-9eb0-31b1033c9d54)
 **This is the actual new version (unless there is a new version in the sources...)**
+![2026-04-24 23-20-44](https://github.com/flixytss/Random-People-Coding-Stuff/blob/main/screenshots/1.png)
 
 ## Contributors
 
