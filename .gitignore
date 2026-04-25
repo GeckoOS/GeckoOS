@@ -4,3 +4,5 @@
 *.elf
 *.iso
 .vscode
+build/*
+*.d
