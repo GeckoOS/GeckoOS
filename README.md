@@ -118,6 +118,8 @@ To emulate the iso with QEMU, or in a more advanced machine, you will need these
 **This is the actual new version (unless there is a new version in the sources...)**
 ![2026-04-24 23-30-44](https://github.com/flixytss/Random-People-Coding-Stuff/blob/main/screenshots/1.png)
 
+In the "screenshots" directory, will be all the photos of the OS (There should be more new photos of the OS).
+
 ## Contributors
 
 - **Ember2819** (Founder & Manager)

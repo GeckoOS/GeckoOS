@@ -29,6 +29,7 @@
 #include <mem/vmm.h>
 #include <mem/pmm.h>
 
+#define GECKOS_VERSION 1.34f
 #define DEBUG
 #define PMM_SIZE multiboot.mem_info->mem_lower + multiboot.mem_info->mem_upper // 4096 * 40
 
@@ -42,7 +43,7 @@ static void kmain();
 
 // Move to it own dedicated file
 void error_cpuid() {
-    printkf("CPUID is not supported in your system!\nHalting forever\n");
+    EPRINT("CPUID is not supported in your system!\nHalting forever\n");
     loop
 }
 extern void check_for_cpuid();
@@ -78,7 +79,7 @@ void kernel_main(unsigned long magic, unsigned long addr) {
         // The prints shortcuts are functions being called, so you need to use keys in a loop
         if (status) { EPRINT("VMM Returned %d, VMM failed (Ram lower than 129mb)\n", status); }
         else { OPRINT("VMM Returned %d, VMM was initialized successfully\n", status); }
-        IPRINT("Total RAM %dkb\n", PMM_SIZE);
+        IPRINT("Detected RAM from the bootloader (%s): %dkb\n", multiboot.bootloader_name->string, PMM_SIZE);
     #endif
 
     /* Print shortcuts */
@@ -112,7 +113,7 @@ void kernel_main(unsigned long magic, unsigned long addr) {
     }
 
     // Welcome display
-    printc("----- GeckoOS v1.3 -----\n", TERM_COLOR);
+    printkf("\n----- GeckoOS v%.2f -----\n", GECKOS_VERSION);
     printc("Built by random people on the internet.\n", TERM_COLOR);
     printkf("User system initialised. Default accounts: root / guest\n");
 
