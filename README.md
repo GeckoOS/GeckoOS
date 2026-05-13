@@ -82,10 +82,8 @@ sudo pacman -S base-devel binutils nasm clang qemu-system-x86 ccache
 - Email: elroylilly@gmail.com
 - [Mastodon](https://mastodon.social/@GeckoOS)
 - Join the community:
-  - [Slack](https://join.slack.com/t/communtiyos/shared_invite/zt-3t3iltj77-5JTo~dkpCm44tZcyA0Or_w)
-  - [Matrix](https://matrix.to/#/#geckoos-official:matrix.org)
-  - [Stoat](https://stt.gg/Cv2wabFH)
-  - [Fluxer](https://fluxer.gg/6K7A79x1)
+  - [Slack](https://join.slack.com/t/communtiyos/shared_invite/zt-3t3iltj77-5JTo~dkpCm44tZcyA0Or_w) (OLD)
+  - [Matrix](https://matrix.to/#/#geckoos-official:matrix.org) <-- Join this
 
 ## Screenshots
 
