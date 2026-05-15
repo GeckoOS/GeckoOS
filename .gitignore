@@ -1,0 +1,8 @@
+*.o
+*.img
+*.bin
+*.elf
+*.d
+.vscode
+
+build/

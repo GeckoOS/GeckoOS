@@ -1,0 +1,5 @@
+CompileFlags:
+  Add: [-Wall, -Wextra, -m32, -march=i686, -ffreestanding, -nostdlib, -xc]
+
+Diagnostics:
+  UnusedIncludes: None

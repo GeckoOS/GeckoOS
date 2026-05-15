@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GeckoOS Official Webite</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+    <div class="topnav">
+      <a href="../index.html"><b>GeckoOS</b></a>
+      <a href="contribute.html">How to Contribute</a>
+      <a href="jobs.html">Available Jobs</a>
+      <a href="roadmap.html">Roadmap</a>
+      <a href="contributors.html">Credits</a>
+      <a class="active">FAQ</a>
+      <a href="downloads.html">Download</a>
+    </div>
+</header>
+
+<h2>FAQ</h2>
+
+<p>(Click to expand)</p>
+
+<details>
+  <summary><a><b>How do I compile and run this project?</b></a></summary>
+  <p>
+  <b>
+  NOTE: THESE INSTRUCTIONS ARE TARGETING LINUX BASED SYSTEMS, IF YOU DON'T USE LINUX THEN INSTALL LINUX ON A VIRTUAL MACHINE TO FOLLOW THESE
+  </b>
+  </p>
+  <p>
+  A:<i> Step 1 - Installing the required build tools</i>
+  </p>
+  <p>I am using Ubuntu for this guide, the following command will install the required tools on any Ubuntu based distro.
+  <code>sudo apt install build-essential binutils nasm clang qemu-system-x86</code>
+  </p>
+  <p>
+  This installs:
+  </p>
+  
+  <p style="margin-left: 40px;">
+NASM (for assembling the bootloader)
+<br>LD (the GNU linker for linking the code into one image)
+<br>Clang (for compiling the C code)
+<br>GCC (backup compiler, same use as Clang)
+<br>Make (for automating all the commands needed)
+<br>QEMU (emulator, for testing the OS)
+</p>
+  
+  <p>
+  If you are not using an Ubuntu based distro then use any equivalent command for your distro's package manager, these tools should be easily available for all distros.
+  </p>
+  
+  <p>
+  <i>Step 2 - Building the OS</i>
+  </p>
+  
+  <p>
+  This process will work on any Linux distro as long as you have the previously stated dependencies installed. There are 2 commands you can use for this:
+  </p>
+  
+  
+  
+    <p style="margin-left: 40px;">
+<code>make all</code> - This produces an os.img file
+<br><code>make run</code> - This produces an os.img file as well, but it also runs the img file in qemu so you can test it out.
+</p>
+  
+</details>
+
+
+</body>
+</html>

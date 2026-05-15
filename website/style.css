@@ -1,0 +1,81 @@
+html {
+    color-scheme: dark;
+    height: 100%;
+    color: white;
+}
+.topnav {
+    overflow: hidden;
+}
+.topnav a:link {
+    float: left;
+    background-color: #000000;
+    text-align: center;
+    font-size: 12pt;
+    color: #ffffff;
+    border: 3px solid #aaaaaa;
+    border-radius: 8px;
+    padding: 4px 6px;
+    margin: 2px;
+    text-decoration: none;
+    display: inline-block;
+    transition: 0.5s;
+}
+.topnav a:visited {
+    float: left;
+    background-color: #000000;
+    text-align: center;
+    font-size: 12pt;
+    color: #ffffff;
+    border: 3px solid #aaaaaa;
+    border-radius: 8px;
+    padding: 4px 6px;
+    margin: 2px;
+    text-decoration: none;
+    display: inline-block;
+}
+.topnav a:hover {
+    background-color: #ffffff;
+    color: #000000;
+    border: 3px solid #aaaaaa;
+}
+.topnav a.active {
+    float: left;
+    background-color: #ffffff;
+    text-align: center;
+    font-size: 12pt;
+    color: #000000;
+    border: 3px solid #aaaaaa;
+    border-radius: 8px;
+    padding: 4px 6px;
+    margin: 2px;
+    text-decoration: none;
+    display: inline-block;
+
+}
+a:link, a:visited {
+    text-align: center;
+    color: #dddddd;
+    text-decoration: underline dotted;
+    display: inline-block;
+}
+
+img {
+    border: 1px solid #aaaaaa;
+    border-radius: 4px;
+    padding: 1px;
+    margin: 1px;
+    image-rendering: pixelated;
+}
+h4 {
+    color: #aaaaaa;
+}
+body {
+    width: 80%;
+    margin: 4em auto;
+    color: white;
+    background-color: #222222;
+    font-family: Terminus, Ubuntu Mono, Noto Sans Mono, monospace;
+}
+details summary::-webkit-details-marker {
+	display: none;
+}
