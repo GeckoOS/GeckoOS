@@ -8,6 +8,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -15,20 +16,31 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y nasm gcc make binutils mtools dosfstools
+          sudo apt install -y \
+            nasm gcc make binutils \
+            mtools dosfstools grub-pc-bin xorriso
 
       - name: Build OS
         run: make
 
-      - name: Create FAT16 disk image
+      - name: Create FAT32 data disk
         run: |
-          dd if=/dev/zero of=fat16.img bs=512 count=65536
-          mkfs.fat -F 16 -n "GECKOOS" fat16.img
+          dd if=/dev/zero of=fat32.img bs=1M count=64
+          mkfs.fat -F 32 -n "GECKOOS" fat32.img
+
+      - name: Populate FAT32 image (if you have files)
+        run: |
+          mkdir -p mnt
+          sudo mount -o loop fat32.img mnt || true
+          # optional: copy runtime files if your project has them
+          # sudo cp -r data/* mnt/ || true
+          sync
+          sudo umount mnt || true
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: os-images
           path: |
-            os.img
-            fat16.img
+            gecko.iso
+            fat32.img
