@@ -36,7 +36,7 @@ grub-iso: kernel.elf
 	@mkdir -p $(ISODIR)/boot/grub
 	cp kernel.elf         $(ISODIR)/boot/kernel.elf
 	cp boot/grub/grub.cfg $(ISODIR)/boot/grub/grub.cfg
-	grub2-mkrescue -o gecko.iso $(ISODIR) --locale-directory=/usr/share/locale
+	grub-mkrescue -o gecko.iso $(ISODIR) --locale-directory=/usr/share/locale
 	@echo ""
 	@echo "  gecko.iso built. Boot with:  make run-grub"
 
@@ -51,7 +51,8 @@ fat32.img:
 run-fat32: gecko.iso fat32.img
 	qemu-system-i386 \
 	  -cdrom gecko.iso \
-	  -drive format=raw,file=fat32.img
+	  -drive format=raw,file=fat32.img \
+	  -boot order=d
 
 clean:
 	rm -f $(OBJECTS) $(DEPS)
