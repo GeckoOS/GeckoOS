@@ -272,7 +272,7 @@ void get_mouse_event(mouse_event_data_t md)
     // if (md.scroll > 0) {
     //     vga_scroll(VGA_COLOR_GREEN);
     // }
-   //printf("%d",md.scroll);
+    //printf("%d", md.scroll);
     draw_cursor(md.x, md.y, 1);
 }
 #define VGA_MEMORY ((uint16_t *)0xB8000)
