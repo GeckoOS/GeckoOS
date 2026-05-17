@@ -6,4 +6,5 @@
 .vscode
 gecko.iso
 grub-modules/i386-pc/*.mod
+kernel.elf
 build/
