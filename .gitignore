@@ -5,6 +5,6 @@
 *.d
 .vscode
 gecko.iso
-grub-modules/i386-pc/*.mod
+grub-modules/i386-pc/*
 kernel.elf
 build/
