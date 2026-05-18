@@ -88,57 +88,67 @@ void print_mouse_info()
         printf("Middle button clicked");
     }
 }
-
+static uint8_t mouse_cycle = 0;
+static char mouse_byte[4];
 void mouse_handler(registers_t *r)
 {
-    static uint8_t mouse_cycle = 0;
-    static char mouse_byte[4];
 
+    mouse_wait(true);
     switch (mouse_cycle) {
-    case 0:
-        mouse_byte[0] = mouse_read(); // get buttons
-        get_mouse_status(mouse_byte[0], &g_status);
-        mouse_cycle++;
 
-        break;
-    case 1:
+    case 0: {
+        mouse_byte[0] = mouse_read();
+        mouse_cycle++;
+        return;
+    }
+    case 1: {
         mouse_byte[1] = mouse_read();
         mouse_cycle++;
-        break;
-    case 2:
+        return;
+    }
+    case 2: {
         mouse_byte[2] = mouse_read();
-        g_mouse_x_pos =
-            g_mouse_x_pos +
-            mouse_byte[1]; //*0.15;//sensibility  modifided from posistion moved
-                           // here otherwise strange things happen
-        g_mouse_y_pos = g_mouse_y_pos - mouse_byte[2]; //*0.15;
-
-        if (g_mouse_x_pos < 0)
-            g_mouse_x_pos = 0;
-        if (g_mouse_y_pos < 0)
-            g_mouse_y_pos = 0;
-        if (g_mouse_x_pos > VGA_TEXT_WIDTH)
-            g_mouse_x_pos = VGA_TEXT_WIDTH - 1;
-        if (g_mouse_y_pos > VGA_TEXT_HEIGHT)
-            g_mouse_y_pos = VGA_TEXT_HEIGHT - 1;
-
-        // terminal_clear(VGA_COLOR_BLACK);
-        // (g_mouse_x_pos, g_mouse_y_pos);
-        // putchar('X',VGA_COLOR_LIGHT_GREEN);
-        // print_mouse_info();
-        mouse_cycle = 0;
+        mouse_cycle++;
+        return;
+    }
+    case 3: {
+        mouse_byte[3] = mouse_read();
+        mouse_cycle++;
         break;
     }
-    // store data a write a callback so that we can overwrite the behaviour of
-    // the handler without modifying IDT
+    }
+
+    g_mouse_x_pos =
+        g_mouse_x_pos +
+        mouse_byte[1]; //*0.15;//sensibility  modifided from posistion moved
+                       // here otherwise strange things happen
+    g_mouse_y_pos = g_mouse_y_pos - mouse_byte[2]; //*0.15;
+
+    if (g_mouse_x_pos < 0)
+        g_mouse_x_pos = 0;
+    if (g_mouse_y_pos < 0)
+        g_mouse_y_pos = 0;
+    if (g_mouse_x_pos > VGA_TEXT_WIDTH)
+        g_mouse_x_pos = VGA_TEXT_WIDTH - 1;
+    if (g_mouse_y_pos > VGA_TEXT_HEIGHT)
+        g_mouse_y_pos = VGA_TEXT_HEIGHT - 1;
+
+    // terminal_clear(VGA_COLOR_BLACK);
+    // (g_mouse_x_pos, g_mouse_y_pos);
+    // putchar('X',VGA_COLOR_LIGHT_GREEN);
+    // print_mouse_info();
+    mouse_cycle = 0;
+
+    // store data a write a callback so that we can overwrite the behaviour
+    // of the handler without modifying IDT
     mouse_event_data_t md;
-    // it s a bitmask with buttons can be simplified witha  high level handler
-    // something like that is above
+    // it s a bitmask with buttons can be simplified witha  high level
+    // handler something like that is above
     md.buttons    = mouse_byte[0];
     md.event_type = 0; // Move mouse
     md.x          = g_mouse_x_pos;
     md.y          = g_mouse_y_pos;
-    md.scroll     = (int8_t)mouse_byte[3];
+    md.scroll     = mouse_byte[3];
     if (mouse_event_run != NULL) {
         // Call the registered callback function
         mouse_event_run(md);
@@ -146,7 +156,29 @@ void mouse_handler(registers_t *r)
         printf("No callback registered\n");
     }
 }
-
+// writes a byte to mouse to do something
+// each byte needs to ask to be written
+void WriteToMouse(uint8_t byte)
+{
+    // ask to write
+    mouse_wait(true);
+    outb(PS2_CMD_PORT, 0xD4);
+    // write
+    mouse_wait(true);
+    outb(MOUSE_DATA_PORT, byte);
+}
+// returns data only if asked by a command written to mouse
+uint8_t ReadFromMouse()
+{
+    mouse_wait(false);
+    // acknowledgement byte means it worked if 0xfa
+    uint8_t ack = inb(MOUSE_DATA_PORT);
+    if (0xfa == ack) {
+        //printf("worked to write to read from mouse ");
+    }
+    mouse_wait(false);
+    return inb(MOUSE_DATA_PORT);
+}
 /**
  * available rates 10, 20, 40, 60, 80, 100, 200
  */
@@ -154,13 +186,13 @@ void set_mouse_rate(uint8_t rate)
 {
     uint8_t status;
 
-    outb(MOUSE_DATA_PORT, MOUSE_CMD_SAMPLE_RATE);
+    WriteToMouse(MOUSE_CMD_SAMPLE_RATE);
     status = mouse_read();
     if (status != MOUSE_ACKNOWLEDGE) {
         printf("error: failed to send mouse sample rate command\n");
         return;
     }
-    outb(MOUSE_DATA_PORT, rate);
+    WriteToMouse(rate);
     status = mouse_read();
     if (status != MOUSE_ACKNOWLEDGE) {
         printf("error: failed to send mouse sample rate data\n");
@@ -175,13 +207,21 @@ void set_mouse_rate(uint8_t rate)
 //     mouse_wait(1);
 //     mouse_read();
 
-
 //     return mouse_read()
 // }
+
+/// hate ports he wikios explains how to do this
+///  for each command send
+///  1 wait for mouse byte 1
+///  2 send 0xD4 to 0x64
+///  3 wait for command byte agian from 0x64
+///  4 only now you get an acknowledge byte 0xFA meaning it works than the
+///  value hate this 5 wait agian 6 actually send byte to do stuff and read
 void mouse_init()
 {
     uint8_t status;
-
+    uint8_t mouse_id; // 0x0 just move and buttons  0x3 scroll /0x4 a lot of
+                      // buttons
     g_mouse_x_pos = 5;
     g_mouse_y_pos = 2;
 
@@ -194,12 +234,20 @@ void mouse_init()
     // outb(MOUSE_DATA_PORT,0xF5);
 
     // print mouse id
-
+    // this is the setup
+    mouse_wait(true);
+    outb(PS2_CMD_PORT, 0xD4);
+    mouse_wait(true);
     outb(MOUSE_DATA_PORT, MOUSE_CMD_MOUSE_ID);
     status = mouse_read();
+    mouse_wait(true);
+    status = mouse_read();
+
     printf("mouse id: 0x%x\n", status);
-    // mouse id will change if it has more buttons after  sending some random
-    //* packages for some reasone the sequence for scroll whell is 200 100 80
+    // mouse id will change if it has more buttons after  sending some
+    // random
+    //* packages for some reasone the sequence for scroll whell is 200 100
+    // 80
     // and
     // for buttons it is 200 200 80
 
@@ -208,33 +256,30 @@ void mouse_init()
 
     set_mouse_rate(100);
 
-
     set_mouse_rate(80);
 
+    WriteToMouse(MOUSE_CMD_MOUSE_ID);
+    mouse_id = ReadFromMouse();
 
-    outb(MOUSE_DATA_PORT, MOUSE_CMD_MOUSE_ID);
-    mouse_wait(true);
-    status = mouse_read();
-    if (status == 3) {
-        printf("Mouse has accepted it has whell %d\n", status);
+    if (mouse_id == 3) {
+        printf("Mouse has accepted it has whell %d\n", mouse_id);
     } else {
-        printf("Mouse renounces his whell %d\n", status);
+        printf("Mouse renounces his whell %d\n", mouse_id);
     }
     //* activating buttons
     set_mouse_rate(200);
-    mouse_wait(true);
-
     set_mouse_rate(200);
-    mouse_wait(true);
 
     set_mouse_rate(80);
-   
-    if (status == 4) {
-        printf("Mouse has accepted it has buttons %d\n", status);
+
+    WriteToMouse(MOUSE_CMD_MOUSE_ID);
+    mouse_id = ReadFromMouse();
+    if (mouse_id == 4) {
+        printf("Mouse has accepted it has buttons %d\n", mouse_id);
     } else {
-        printf("Mouse renounces his buttons %d\n", status);
+        printf("Mouse renounces his buttons %d\n", mouse_id);
     }
-    status = mouse_read();
+
     // outb(MOUSE_DATA_PORT, MOUSE_CMD_RESOLUTION);
     // outb(MOUSE_DATA_PORT, 0);
 
@@ -251,13 +296,13 @@ void mouse_init()
     outb(MOUSE_DATA_PORT, status);
 
     // set mouse to use default settings
-    mouse_write(MOUSE_CMD_SET_DEFAULTS);
-    status = mouse_read();
-    if (status != MOUSE_ACKNOWLEDGE) {
-        printf("error: failed to set default mouse settings\n");
-        return;
+    WriteToMouse(MOUSE_CMD_SET_DEFAULTS);
+    mouse_wait(false);
+    // acknowledgement byte means it worked if 0xfa
+    uint8_t ack = inb(MOUSE_DATA_PORT);
+    if (0xfa == ack) {
+        printf("worked to write to read from mouse ");
     }
-
     // enable packet streaming to receive
     mouse_write(MOUSE_CMD_ENABLE_PACKET_STREAMING);
     status = mouse_read();
