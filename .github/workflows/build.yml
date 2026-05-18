@@ -1,0 +1,140 @@
+name: Build OS
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            nasm gcc make binutils \
+            mtools dosfstools grub-pc-bin xorriso
+
+      - name: Build OS
+        id: build_step
+        run: make
+
+      - name: Create FAT32 data disk
+        run: |
+          dd if=/dev/zero of=fat32.img bs=1M count=64
+          mkfs.fat -F 32 -n "GECKOOS" fat32.img
+
+      - name: Populate FAT32 image
+        run: |
+          mkdir -p mnt
+          sudo mount -o loop fat32.img mnt || true
+          sync
+          sudo umount mnt || true
+
+      - name: Upload artifacts
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: os-images
+          path: |
+            gecko.iso
+            fat32.img
+
+      # SUCCESS WEBHOOK
+      - name: Send Discord Success Notification
+        if: success()
+        run: |
+          curl -H "Content-Type: application/json" \
+          -X POST \
+          -d "{
+            \"embeds\": [{
+              \"title\": \"✅ GeckoOS Build Succeeded\",
+              \"color\": 5763719,
+              \"fields\": [
+                {
+                  \"name\": \"Repository\",
+                  \"value\": \"${{ github.repository }}\",
+                  \"inline\": true
+                },
+                {
+                  \"name\": \"Branch\",
+                  \"value\": \"${{ github.ref_name }}\",
+                  \"inline\": true
+                },
+                {
+                  \"name\": \"Actor\",
+                  \"value\": \"${{ github.actor }}\",
+                  \"inline\": true
+                },
+                {
+                  \"name\": \"Commit\",
+                  \"value\": \"${{ github.event.head_commit.message || github.event.pull_request.title || 'Manual Run' }}\"
+                },
+                {
+                  \"name\": \"Artifacts\",
+                  \"value\": \"gecko.iso\nfat32.img\"
+                },
+                {
+                  \"name\": \"Workflow Run\",
+                  \"value\": \"https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"
+                }
+              ],
+              \"footer\": {
+                \"text\": \"GeckoOS CI\"
+              },
+              \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
+            }]
+          }" \
+          "https://discord.com/api/webhooks/1505207852770398291/Oxc-jbJj3dX3E_63t5MOc8hHsRugMfM5SmznHxzHsmYxqwYiQz6jZ1CB-4W4RfSg6V5a"
+
+      # FAILURE WEBHOOK
+      - name: Send Discord Failure Notification
+        if: failure()
+        run: |
+          curl -H "Content-Type: application/json" \
+          -X POST \
+          -d "{
+            \"embeds\": [{
+              \"title\": \"❌ GeckoOS Build Failed\",
+              \"color\": 15548997,
+              \"fields\": [
+                {
+                  \"name\": \"Repository\",
+                  \"value\": \"${{ github.repository }}\",
+                  \"inline\": true
+                },
+                {
+                  \"name\": \"Branch\",
+                  \"value\": \"${{ github.ref_name }}\",
+                  \"inline\": true
+                },
+                {
+                  \"name\": \"Actor\",
+                  \"value\": \"${{ github.actor }}\",
+                  \"inline\": true
+                },
+                {
+                  \"name\": \"Commit\",
+                  \"value\": \"${{ github.event.head_commit.message || github.event.pull_request.title || 'Manual Run' }}\"
+                },
+                {
+                  \"name\": \"Failed Step\",
+                  \"value\": \"Check GitHub Actions logs\"
+                },
+                {
+                  \"name\": \"Workflow Run\",
+                  \"value\": \"https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"
+                }
+              ],
+              \"footer\": {
+                \"text\": \"GeckoOS CI\"
+              },
+              \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
+            }]
+          }" \
+          "https://discord.com/api/webhooks/1505207852770398291/Oxc-jbJj3dX3E_63t5MOc8hHsRugMfM5SmznHxzHsmYxqwYiQz6jZ1CB-4W4RfSg6V5a"
