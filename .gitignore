@@ -4,5 +4,7 @@
 *.elf
 *.d
 .vscode
-
+gecko.iso
+grub-modules/i386-pc/*
+kernel.elf
 build/
