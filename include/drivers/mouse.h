@@ -14,6 +14,7 @@
 #define MOUSE_CMD_REQUEST_SINGLE_PACKET    0xEB
 #define MOUSE_CMD_STATUS                   0xE9
 #define MOUSE_CMD_RESOLUTION               0xE8
+#define MOUSE_CMD_CMD                      0xD4 //COmmand to ask for writing command response is 0XFA acknowledge byte
 
 #define MOUSE_ACKNOWLEDGE 0xFA
 
@@ -58,8 +59,9 @@ void register_mouse_callback(mouse_event_callback callback);
 // Function that will trigger the callback
 void simulate_mouse_event(mouse_event_data_t md);
 
-
 static mouse_event_callback mouse_event_run = 0;
 
 void set_mouse_rate(uint8_t rate);
+
+uint8_t mouse_read();
 #endif
