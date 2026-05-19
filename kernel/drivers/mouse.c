@@ -102,10 +102,10 @@ void mouse_handler(registers_t *r)
         mouse_cycle++;
 
         break;
-    case 1:
+    case 1: {
         mouse_byte[1] = mouse_read();
         mouse_cycle++;
-        return;;
+        return;
     }
     case 2: {
         mouse_byte[2] = mouse_read();
@@ -114,7 +114,7 @@ void mouse_handler(registers_t *r)
     }
     case 3: {
         mouse_byte[3] = mouse_read();
-        //printf("Raw Byte 3: %u (0x%02X)\n", mouse_byte[3], mouse_byte[3]);
+        // printf("Raw Byte 3: %u (0x%02X)\n", mouse_byte[3], mouse_byte[3]);
         mouse_cycle++;
         break;
     }
@@ -126,22 +126,21 @@ void mouse_handler(registers_t *r)
                        // here otherwise strange things happen
     g_mouse_y_pos = g_mouse_y_pos - mouse_byte[2]; //*0.15;
 
-        if (g_mouse_x_pos < 0)
-            g_mouse_x_pos = 0;
-        if (g_mouse_y_pos < 0)
-            g_mouse_y_pos = 0;
-        if (g_mouse_x_pos > VGA_TEXT_WIDTH)
-            g_mouse_x_pos = VGA_TEXT_WIDTH - 1;
-        if (g_mouse_y_pos > VGA_TEXT_HEIGHT)
-            g_mouse_y_pos = VGA_TEXT_HEIGHT - 1;
+    if (g_mouse_x_pos < 0)
+        g_mouse_x_pos = 0;
+    if (g_mouse_y_pos < 0)
+        g_mouse_y_pos = 0;
+    if (g_mouse_x_pos > VGA_TEXT_WIDTH)
+        g_mouse_x_pos = VGA_TEXT_WIDTH - 1;
+    if (g_mouse_y_pos > VGA_TEXT_HEIGHT)
+        g_mouse_y_pos = VGA_TEXT_HEIGHT - 1;
 
-        // terminal_clear(VGA_COLOR_BLACK);
-        // (g_mouse_x_pos, g_mouse_y_pos);
-        // putchar('X',VGA_COLOR_LIGHT_GREEN);
-        // print_mouse_info();
-        mouse_cycle = 0;
-        break;
-    }
+    // terminal_clear(VGA_COLOR_BLACK);
+    // (g_mouse_x_pos, g_mouse_y_pos);
+    // putchar('X',VGA_COLOR_LIGHT_GREEN);
+    // print_mouse_info();
+    mouse_cycle = 0;
+
     // store data a write a callback so that we can overwrite the behaviour of
     // the handler without modifying IDT
     mouse_event_data_t md;
@@ -152,7 +151,7 @@ void mouse_handler(registers_t *r)
     md.x          = g_mouse_x_pos;
     md.y          = g_mouse_y_pos;
     md.scroll     = (int8_t)mouse_byte[3];
-    printf("%x",md.scroll);
+    printf("%x", md.scroll);
     if (mouse_event_run != NULL) {
         // Call the registered callback function
         mouse_event_run(md);
@@ -164,6 +163,7 @@ void mouse_handler(registers_t *r)
 /**
  * available rates 10, 20, 40, 60, 80, 100, 200
  */
+
 void set_mouse_rate(uint8_t rate)
 {
     uint8_t status;
@@ -188,7 +188,6 @@ void set_mouse_rate(uint8_t rate)
 //     outb(MOUSE_DATA_PORT, 0xF2);
 //     mouse_wait(1);
 //     mouse_read();
-
 
 //     return mouse_read()
 // }
@@ -222,9 +221,7 @@ void mouse_init()
 
     set_mouse_rate(100);
 
-
     set_mouse_rate(80);
-
 
     outb(MOUSE_DATA_PORT, MOUSE_CMD_MOUSE_ID);
     mouse_wait(true);
@@ -242,7 +239,7 @@ void mouse_init()
     mouse_wait(true);
 
     set_mouse_rate(80);
-   
+
     if (status == 4) {
         printf("Mouse has accepted it has buttons %d\n", status);
     } else {
