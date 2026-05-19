@@ -162,8 +162,8 @@ long_mode_entry:
     popfq
 
     ; RDI = magic, RSI = mbi_addr
-    movzx rdi, edi
-    movzx rsi, esi
+    mov edi, edi      ; zero‑extends EDI into RDI
+    mov esi, esi  
 
     call multiboot2_main
 
