@@ -151,7 +151,7 @@ void mouse_handler(registers_t *r)
     md.x          = g_mouse_x_pos;
     md.y          = g_mouse_y_pos;
     md.scroll     = (int8_t)mouse_byte[3];
-    printf("%x", md.scroll);
+    //printf("%x", md.scroll);
     if (mouse_event_run != NULL) {
         // Call the registered callback function
         mouse_event_run(md);

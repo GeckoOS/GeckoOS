@@ -266,12 +266,12 @@ void terminal_init() { register_mouse_callback(get_mouse_event); }
 void get_mouse_event(mouse_event_data_t md)
 {
    
-    if (md.scroll-7 < 0) {
-        vga_scroll(VGA_COLOR_GREEN);
-    }
-    if (md.scroll-7 > 0) {
-        vga_scroll(VGA_COLOR_GREEN);
-    }
+    // if (md.scroll-7 < 0) {
+    //     vga_scroll(VGA_COLOR_GREEN);
+    // }
+    // if (md.scroll-7 > 0) {
+    //     vga_scroll(VGA_COLOR_GREEN);
+    // }
    
 
     // Now assign to md.scroll and check again
