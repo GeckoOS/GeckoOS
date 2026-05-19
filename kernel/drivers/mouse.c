@@ -88,7 +88,8 @@ void print_mouse_info()
         printf("Middle button clicked");
     }
 }
-
+static uint8_t mouse_cycle = 0;
+static uint8_t mouse_byte[4];
 void mouse_handler(registers_t *r)
 {
     static uint8_t mouse_cycle = 0;
@@ -104,14 +105,26 @@ void mouse_handler(registers_t *r)
     case 1:
         mouse_byte[1] = mouse_read();
         mouse_cycle++;
-        break;
-    case 2:
+        return;;
+    }
+    case 2: {
         mouse_byte[2] = mouse_read();
-        g_mouse_x_pos =
-            g_mouse_x_pos +
-            mouse_byte[1]; //*0.15;//sensibility  modifided from posistion moved
-                           // here otherwise strange things happen
-        g_mouse_y_pos = g_mouse_y_pos - mouse_byte[2]; //*0.15;
+        mouse_cycle++;
+        return;
+    }
+    case 3: {
+        mouse_byte[3] = mouse_read();
+        //printf("Raw Byte 3: %u (0x%02X)\n", mouse_byte[3], mouse_byte[3]);
+        mouse_cycle++;
+        break;
+    }
+    }
+
+    g_mouse_x_pos =
+        g_mouse_x_pos +
+        mouse_byte[1]; //*0.15;//sensibility  modifided from posistion moved
+                       // here otherwise strange things happen
+    g_mouse_y_pos = g_mouse_y_pos - mouse_byte[2]; //*0.15;
 
         if (g_mouse_x_pos < 0)
             g_mouse_x_pos = 0;
@@ -139,6 +152,7 @@ void mouse_handler(registers_t *r)
     md.x          = g_mouse_x_pos;
     md.y          = g_mouse_y_pos;
     md.scroll     = (int8_t)mouse_byte[3];
+    printf("%x",md.scroll);
     if (mouse_event_run != NULL) {
         // Call the registered callback function
         mouse_event_run(md);
