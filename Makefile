@@ -37,7 +37,8 @@ ISODIR = isodir
 grub-modules/i386-pc/modinfo.sh:
 	@echo "Downloading i386-pc GRUB modules..."
 	@mkdir -p grub-modules
-	@curl -sL "https://archive.archlinux.org/packages/g/grub/grub-2%3A2.14-1-x86_64.pkg.tar.zst" -o /tmp/grub-x86_64.pkg.tar.zst
+	@curl -sL "https://archive.archlinux.org/packages/g/grub/grub-2%3A2.14-1-x86_64.pkg.tar.zst" \
+		-o /tmp/grub-x86_64.pkg.tar.zst
 	@tar --zstd -xf /tmp/grub-x86_64.pkg.tar.zst -C /tmp 2>/dev/null || true
 	@cp -r /tmp/usr/lib/grub/i386-pc grub-modules/
 	@rm -rf /tmp/usr /tmp/grub-x86_64.pkg.tar.zst
@@ -47,8 +48,7 @@ grub-iso: kernel.elf grub-modules/i386-pc/modinfo.sh
 	cp kernel.elf         $(ISODIR)/boot/kernel.elf
 	cp boot/grub/grub.cfg $(ISODIR)/boot/grub/grub.cfg
 	grub-mkrescue --directory=grub-modules/i386-pc -o gecko.iso $(ISODIR) --locale-directory=/usr/share/locale
-	@echo ""
-	@echo "  gecko.iso built. Boot with:  make run-grub"
+	@echo "gecko.iso built. Boot with:  make run-grub"
 
 run-grub: gecko.iso
 	qemu-system-x86_64 -cdrom gecko.iso -boot order=d
