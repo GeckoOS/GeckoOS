@@ -6,5 +6,5 @@
 *.iso
 *.log
 .vscode
-
+grub-modules/i386-pc
 build/
