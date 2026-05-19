@@ -265,14 +265,16 @@ void terminal_init() { register_mouse_callback(get_mouse_event); }
 
 void get_mouse_event(mouse_event_data_t md)
 {
-    // md.event_type = 0;
-    // if (md.scroll < 0) {
+   
+    // if (md.scroll-7 < 0) {
     //     vga_scroll(VGA_COLOR_GREEN);
     // }
-    // if (md.scroll > 0) {
+    // if (md.scroll-7 > 0) {
     //     vga_scroll(VGA_COLOR_GREEN);
     // }
-   //printf("%d",md.scroll);
+   
+
+    // Now assign to md.scroll and check again
     draw_cursor(md.x, md.y, 1);
 }
 #define VGA_MEMORY ((uint16_t *)0xB8000)
