@@ -138,53 +138,36 @@ void render_viewport()
 }
 void scroll_up()
 {
-    if (viewport_top >= total_lines-VGA_TEXT_HEIGHT*2+1) {
+    if (viewport_top >= total_lines - VGA_TEXT_HEIGHT * 2 + 1) {
         follow_output = false;
     }
-    
-    if(viewport_top == 0)
+
+    if (viewport_top == 0)
         return;
     if (viewport_top > 0)
         viewport_top--;
 }
 void scroll_down()
-{   
-    if (viewport_top >= total_lines-VGA_TEXT_HEIGHT*2+1) {
+{
+    if (viewport_top >= total_lines - VGA_TEXT_HEIGHT * 2 + 1) {
         follow_output = true;
-        
     }
     if (viewport_top + VGA_TEXT_HEIGHT < total_lines)
         viewport_top++;
 }
-// void vga_scroll_down(uint8_t color)
-// {
-//     if(viewport_top < VGA_TEXT_HEIGHT)
-//         return;
-
-//     int history_index = viewport_top - VGA_TEXT_HEIGHT;
-
-//     if(history_index < 0 || history_index >= SCROLLBACK_LINES)
-//         return;
-
-//     uint16_t *buff = (uint16_t*)VGA_TEXT_ADDR;
-
-//     size_t total = VGA_TEXT_WIDTH * VGA_TEXT_HEIGHT;
-
-//     // Move screen DOWN by one row
-//     for(size_t i = total; i-- > VGA_TEXT_WIDTH;)
-//         buff[i] = buff[i - VGA_TEXT_WIDTH];
-
-//     // Copy history line into first row
-//     for(size_t i = 0; i < VGA_TEXT_WIDTH; i++)
-//         buff[i] = console_history[history_index][i];
-
-//     viewport_top--;
-// }
 void terminal_clear(uint8_t color)
 {
     vga_clear(color);
+    uint16_t blank = vga_entry(' ', color);
+
+    for (size_t y = 0; y < SCROLLBACK_LINES; y++) {
+        for (size_t x = 0; x < VGA_TEXT_WIDTH; x++) {
+            console_history[y][x] = blank;
+        }
+    }
+    total_lines=0;
     terminal_column = 0;
-    terminal_row    = 0;
+    viewport_top=0;
     move_tcursor(0, 0);
 }
 
