@@ -98,7 +98,7 @@ make clean
 ## How to Contribute
 
 Submit ideas or feedback:
-- General feedback: [Google Forms](https://docs.google.com/forms/d/e/1FAIpQLSe-euunJ8venpIXOD9_Luy_ZyDaszK5GU0efVQ_QOV7YDge9w/viewform?usp=publish-editor)
+- General feedback: [Google Forms](https://docs.google.com/forms/d/e/1FAIpQLSe-euunJ8venpIXOD9_Luy_ZyDaszK5FUefVQ_QOV7YDge9w/viewform?usp=publish-editor)
 
 Ways to contribute:
 - Fix typos or improve wording
@@ -111,6 +111,13 @@ Apply contributions via:
 - Fork the repo, make changes, and submit a PR
 
 Add your name to the contributors list when you contribute!
+
+### Contributing Guidelines
+
+- [AI Usage Policy](Docs/AI_USAGE.md) — Rules and expectations for using AI in GeckoOS development
+- [Help Wanted](Docs/HELP.md) — Areas where the project needs help (hardware, software, marketing, general)
+- [Roadmap](Docs/ROADMAP.md) — Planned features and future direction of GeckoOS
+- [Donate](Docs/DONATE.md) — How to support the project
 
 ---
 
