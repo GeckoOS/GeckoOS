@@ -5,12 +5,17 @@
 #include <drivers/vga.h>
 #include <drivers/keyboard.h>
 #include <drivers/drives.h>
+#include <drivers/serial.h>
 #include <layouts/kb_layouts.h>
 #include <terminal/terminal.h>
 #include <commands.h>
 #include <colors.h>
 #include <stdint.h>
 #include <drivers/pci.h>
+#include <mem/physical_mem.h>
+#include <mem/paging.h>
+#include <net/net.h>
+#include <net/arp.h>
 
 void process_input(unsigned char *buffer) {
     run_command(buffer, TERM_COLOR);
@@ -20,7 +25,17 @@ static void kmain();
 
 __attribute__((section(".text.entry")))
 void _entry() {
+    serial_init();
+
     kalloc_init();
+
+    /*
+     * Bitmap goes at 0x500000 (512 bytes). Free region starts one page
+     * later at 0x501000 so the allocator doesn't hand out its own bitmap
+     * as the first allocation.
+     */
+    initialize_memory_manager(0x500000, 0x1000000);
+    initialize_memory_region(0x501000, 0xFFF000);
 
     vga_clear(TERM_COLOR);
     printc("GeckoOS Version 2.0\n", TERM_COLOR);
@@ -43,8 +58,18 @@ void _entry() {
     asm volatile("int $0x3");
     printc("Test completed!\n", VGA_COLOR_LIGHT_GREY);
 
+    printc("Enabling paging...\n", VGA_COLOR_LIGHT_GREY);
+    if (!vmm_init()) {
+        printc("vmm_init failed -- halting\n", VGA_COLOR_RED);
+        for (;;) asm volatile("hlt");
+    }
+
     drives_init();
     enumerate_pci();
+    pci_detect_nics();
+
+    net_init();
+    arp_init();
 
     kmain();
 }

@@ -7,6 +7,9 @@
 
 static page_table_t *current_pml4 = NULL;
 
+#define MMIO_VIRT_BASE 0xFFFFFFFF90000000ULL
+static uint64_t mmio_virt_next = MMIO_VIRT_BASE;
+
 static page_table_t *alloc_table(void)
 {
     page_table_t *t = (page_table_t *)allocate_blocks(1);
@@ -16,7 +19,6 @@ static page_table_t *alloc_table(void)
 
 static pte_t *get_pte(page_table_t *pml4, uint64_t virt, bool create)
 {
-    /* PML4 */
     pte_t *pml4e = &pml4->entries[PML4_INDEX(virt)];
     if (!pte_is_present(*pml4e)) {
         if (!create) return NULL;
@@ -25,7 +27,6 @@ static pte_t *get_pte(page_table_t *pml4, uint64_t virt, bool create)
         *pml4e = (uint64_t)pdpt | PTE_PRESENT | PTE_WRITABLE;
     }
 
-    /* PDPT */
     page_table_t *pdpt = (page_table_t *)pte_get_phys(*pml4e);
     pte_t *pdpte = &pdpt->entries[PDPT_INDEX(virt)];
     if (!pte_is_present(*pdpte)) {
@@ -35,7 +36,6 @@ static pte_t *get_pte(page_table_t *pml4, uint64_t virt, bool create)
         *pdpte = (uint64_t)pd | PTE_PRESENT | PTE_WRITABLE;
     }
 
-    /* PD */
     page_table_t *pd = (page_table_t *)pte_get_phys(*pdpte);
     pte_t *pde = &pd->entries[PD_INDEX(virt)];
     if (!pte_is_present(*pde)) {
@@ -45,7 +45,6 @@ static pte_t *get_pte(page_table_t *pml4, uint64_t virt, bool create)
         *pde = (uint64_t)pt | PTE_PRESENT | PTE_WRITABLE;
     }
 
-    /* PT */
     page_table_t *pt = (page_table_t *)pte_get_phys(*pde);
     return &pt->entries[PT_INDEX(virt)];
 }
@@ -97,13 +96,16 @@ bool vmm_init(void)
     page_table_t *pml4 = alloc_table();
     if (!pml4) return false;
 
-    /* Identity-map 0 .. 4 MB (VGA, BIOS, early data) */
-    for (uint64_t phys = 0; phys < 0x400000; phys += PAGE_SIZE) {
+    /*
+     * Identity-map the first 16 MB. The physical allocator lives at
+     * 0x500000 (5 MB) and the page tables it hands out need to be
+     * reachable after CR3 switches. 4 MB wasn't enough.
+     */
+    for (uint64_t phys = 0; phys < 0x1000000; phys += PAGE_SIZE) {
         if (!vmm_map(pml4, phys, phys, PTE_PRESENT | PTE_WRITABLE))
             return false;
     }
 
-    /* Map kernel: physical 0x100000 → virtual 0xFFFFFFFF80100000 */
     uint64_t kernel_phys = 0x100000;
     uint64_t kernel_virt = 0xFFFFFFFF80100000ULL;
     for (uint64_t off = 0; off < 0x400000; off += PAGE_SIZE) {
@@ -113,4 +115,27 @@ bool vmm_init(void)
     }
 
     return vmm_set_pml4(pml4);
+}
+
+uint64_t mmio_map(uint64_t phys, uint64_t size)
+{
+    page_table_t *pml4 = vmm_get_pml4();
+    if (!pml4) return 0;
+
+    uint64_t phys_aligned = phys & ~(PAGE_SIZE - 1);
+    uint64_t offset       = phys - phys_aligned;
+    uint64_t pages        = (size + offset + PAGE_SIZE - 1) / PAGE_SIZE;
+
+    uint64_t virt_base = mmio_virt_next;
+    mmio_virt_next += pages * PAGE_SIZE;
+
+    for (uint64_t i = 0; i < pages; i++) {
+        if (!vmm_map(pml4,
+                     phys_aligned + i * PAGE_SIZE,
+                     virt_base    + i * PAGE_SIZE,
+                     PTE_PRESENT | PTE_WRITABLE | PTE_CACHE_DISABLE))
+            return 0;
+    }
+
+    return virt_base + offset;
 }

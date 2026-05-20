@@ -51,7 +51,9 @@ grub-iso: kernel.elf grub-modules/i386-pc/modinfo.sh
 	@echo "gecko.iso built. Boot with:  make run-grub"
 
 run-grub: gecko.iso
-	qemu-system-x86_64 -cdrom gecko.iso -boot order=d
+	qemu-system-x86_64 -cdrom gecko.iso -boot order=d \
+	  -netdev user,id=net0 \
+	  -device e1000,netdev=net0
 
 fat32.img:
 	dd if=/dev/zero of=fat32.img bs=1M count=64
@@ -62,8 +64,9 @@ run-fat32: gecko.iso fat32.img
 	qemu-system-x86_64 \
 	  -cdrom gecko.iso \
 	  -drive format=raw,file=fat32.img \
-	  -boot order=d
-
+	  -boot order=d \
+	  -netdev user,id=net0 \
+	  -device e1000,netdev=net0
 clean:
 	rm -f $(OBJECTS) $(DEPS)
 	rm -f kernel.elf gecko.iso fat32.img

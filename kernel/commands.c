@@ -4,6 +4,7 @@
 #include <colors.h>
 #include <drivers/keyboard.h>
 #include <drivers/tables/timer.h>
+#include <drivers/serial.h>
 #include <layouts/kb_layouts.h>
 #include <terminal/terminal.h>
 #include <gk/gk.h>
@@ -14,6 +15,10 @@
 #include <stdint.h>
 #include <drivers/pci.h>
 #include <stdbool.h>
+#include <net/net.h>
+#include <net/icmp.h>
+#include <net/arp.h>
+#include <drivers/e1000.h>
 
 // Command table
 static Command commands[] = {
@@ -49,6 +54,8 @@ static Command commands[] = {
     { "mkdir",        cmd_mkdir        },
     { "echo",         cmd_echo         },
     { "write",        cmd_write        },
+    // --- network ---
+    { "ping",         cmd_ping         },
 };
 
 static int num_commands = sizeof(commands) / sizeof(commands[0]);
@@ -93,6 +100,9 @@ static const char* help_lines[] = {
     "mkdir       - Create a new directory",
     "echo        - Print text to screen",
     "write       - Append text to an existing file",
+    "",
+    "--- Network ---",
+    "ping <ip>   - Ping an IP address (e.g. ping 10.0.2.2)",
     "",
     0
 };
@@ -602,6 +612,143 @@ static void cmd_lspci(uint8_t color) {
     printf("\n");
     (void)color;
     pci_lspci();
+}
+
+static uint32_t parse_ip(const char *str) {
+    uint32_t a = 0, b = 0, c = 0, d = 0;
+    int i = 0;
+    while (*str >= '0' && *str <= '9') { a = a * 10 + (*str - '0'); str++; }
+    if (*str == '.') str++; i++;
+    while (*str >= '0' && *str <= '9') { b = b * 10 + (*str - '0'); str++; }
+    if (*str == '.') str++; i++;
+    while (*str >= '0' && *str <= '9') { c = c * 10 + (*str - '0'); str++; }
+    if (*str == '.') str++; i++;
+    while (*str >= '0' && *str <= '9') { d = d * 10 + (*str - '0'); str++; }
+    (void)i;
+    return IP(a, b, c, d);
+}
+
+static void print_ip(uint32_t ip) {
+    print_int((ip >> 24) & 0xFF);
+    printc(".", VGA_COLOR_LIGHT_GREY);
+    print_int((ip >> 16) & 0xFF);
+    printc(".", VGA_COLOR_LIGHT_GREY);
+    print_int((ip >> 8) & 0xFF);
+    printc(".", VGA_COLOR_LIGHT_GREY);
+    print_int(ip & 0xFF);
+}
+
+static void process_rx_packets(void) {
+    uint8_t buf[2048];
+    uint16_t len;
+    while (e1000_receive(buf, &len) == 0) {
+        net_handle_packet(buf, len);
+    }
+}
+
+static void cmd_ping(uint8_t color) {
+    (void)color;
+
+    printc("\nUsage: ping <ip> (e.g. ping 10.0.2.2)\n", VGA_COLOR_LIGHT_GREY);
+    printc("Our IP: ", VGA_COLOR_LIGHT_CYAN);
+    print_ip(net_ip);
+    printc("\n", VGA_COLOR_LIGHT_GREY);
+
+    unsigned char ip_str[32];
+    printc("\nEnter IP to ping: ", color);
+    input(ip_str, 32, color);
+    printc("\n", color);
+
+    if (strlen((char *)ip_str) == 0) {
+        printc("No IP specified.\n", VGA_COLOR_RED);
+        return;
+    }
+
+    uint32_t target_ip = parse_ip((char *)ip_str);
+    printc("Pinging ", color);
+    print_ip(target_ip);
+    printc(" ...\n", color);
+
+    arp_request(target_ip);
+
+    int tick_start = get_tick();
+    int resolved = 0;
+    uint8_t mac[6];
+
+    while (get_tick() - tick_start < 100) {
+        process_rx_packets();
+        if (arp_resolve(target_ip, mac)) {
+            resolved = 1;
+            break;
+        }
+    }
+
+    if (!resolved) {
+        printc("ARP timeout - could not resolve MAC address\n", VGA_COLOR_RED);
+        return;
+    }
+
+    printc("ARP resolved, sending echo requests...\n", VGA_COLOR_LIGHT_GREEN);
+
+    int sent = 0;
+    int received = 0;
+    uint16_t ping_id = 0x1234;
+
+    for (int i = 0; i < 4; i++) {
+        icmp_clear_reply();
+        icmp_send_echo_request(target_ip, ping_id, i);
+        sent++;
+
+        int wait_start = get_tick();
+        int got_reply = 0;
+
+        while (get_tick() - wait_start < 100) {
+            process_rx_packets();
+            if (icmp_got_reply()) {
+                got_reply = 1;
+                break;
+            }
+        }
+
+        if (got_reply) {
+            received++;
+            serial_puts("Reply from ");
+            serial_put_dec((target_ip >> 24) & 0xFF);
+            serial_putc('.');
+            serial_put_dec((target_ip >> 16) & 0xFF);
+            serial_putc('.');
+            serial_put_dec((target_ip >> 8) & 0xFF);
+            serial_putc('.');
+            serial_put_dec(target_ip & 0xFF);
+            serial_puts("\n");
+            printc("Reply from ", VGA_COLOR_LIGHT_GREEN);
+            print_ip(target_ip);
+            printc("\n", color);
+        } else {
+            serial_puts("Request timed out\n");
+            printc("Request timed out\n", VGA_COLOR_RED);
+        }
+
+        timer_wait(50);
+    }
+
+    serial_puts("\n--- Ping Statistics ---\n");
+    serial_puts("Sent: ");
+    serial_put_dec(sent);
+    serial_puts(", Received: ");
+    serial_put_dec(received);
+    serial_puts(", Lost: ");
+    serial_put_dec(sent - received);
+    serial_puts("\n");
+
+    printc("\n--- Ping Statistics ---\n", VGA_COLOR_LIGHT_CYAN);
+    printc("Sent: ", color);
+    print_int(sent);
+    printc(", Received: ", color);
+    print_int(received);
+    printc(", Lost: ", color);
+    print_int(sent - received);
+    printc("\n", color);
 }
 
 static int streq(unsigned char *a, char *b) {
