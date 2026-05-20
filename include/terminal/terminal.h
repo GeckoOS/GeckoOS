@@ -1,10 +1,15 @@
 #pragma once
+#include <stdint.h>
 #ifndef TERMINAL_H
 #define TERMINAL_H
 
 #include "drivers/mouse.h"
 #include <drivers/keyboard.h>
 #include <drivers/vga.h>
+
+#define VGA_MEMORY ((uint16_t *)0xB8000)
+#define VGA_TEXT_WIDTH  80
+#define VGA_TEXT_HEIGHT 25
 
 #define HISTORY_SIZE 10
 static unsigned char history_entries[HISTORY_SIZE][512];
@@ -27,7 +32,18 @@ void print(char *data);
 void print_int(int n);
 void print_hex(uint32_t n);
 
-void vga_scroll(uint8_t color);
+;
+
+#define SCROLLBACK_LINES 10000 // Store up to 10000 lines
+static uint16_t console_history[SCROLLBACK_LINES][VGA_TEXT_WIDTH]; //console history
+static int total_lines=0;//total lines in history should be update when terminal row is
+static int viewport_top=0;//viewport lines(the current line we at should be )
+//renders to vga
+void render_viewport();
+//scrolls up
+void scroll_up();
+//scrolls down
+void scroll_down();
 
 // Ember2819: clear command
 void terminal_clear(uint8_t color);
@@ -45,9 +61,10 @@ typedef struct {
     uint16_t
         original_cell; // Store the original cell at current cursor position
 } cursor_t;
-static float sensibility=0.7;
-static cursor_t cursor = {-1, -1, 0, 0};
+static float sensibility = 0.7;
+static cursor_t cursor   = {-1, -1, 0, 0};
 
 
+void add_to_history(void);
 
 #endif
