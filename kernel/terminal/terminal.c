@@ -1,50 +1,95 @@
-#include "drivers/mouse.h"
 #include "terminal/printf.h"
 #include <drivers/keyboard.h>
+#include <drivers/mouse.h>
 #include <drivers/vga.h>
 #include <gk/gk.h>
 #include <mem.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <terminal/terminal.h>
-uint16_t terminal_column = 0;
-uint16_t terminal_row    = 0;
+
+uint16_t terminal_column = 0; // the column the terminal is at for writing
+uint16_t terminal_row    = 0; // the row the terminal is at for writing
 static int history_count = 0;
 static int history_head  = 0;
 
+static bool follow_output = true; // self explanatory
+// column is x and row in y
 void putchar(char c, uint8_t color)
 {
+    terminal_row = total_lines - viewport_top;
+    // the position in history we writing at
+    // equivalent with terminal column in vga coords
     if (c == 0) {
         return; // Don't print null characters
     }
     if (c == '\n') {
         terminal_column = 0;
-        terminal_row++;
+        total_lines++;
+
     } else if (c == '\t') {
         for (int j = 0; j < 4; j++) {
             putchar(' ', color); // Print 4 spaces when tab is pressed
         }
     } else {
-        putentryat(
-            c, color, terminal_column,
-            terminal_row); // Display the character if it is standard ASCII
+        console_history[total_lines][terminal_column] = vga_entry(c, color);
+
         terminal_column++;
     }
-
     // Wrapping and scrolling
     if (terminal_column == VGA_TEXT_WIDTH) {
         terminal_column = 0;
-        terminal_row++; // MorganPG1 - Fix implementation for wrapping onto a
-                        // new line
+        // MorganPG1 - Fix implementation for wrapping onto
+        total_lines++;
+        viewport_top++;
     }
-    if (terminal_row == VGA_TEXT_HEIGHT) {
-        vga_scroll(color);
-        terminal_column = 0;
-        terminal_row    = VGA_TEXT_HEIGHT - 1;
+    if (terminal_row >= VGA_TEXT_HEIGHT && follow_output) {
+        scroll_down();
     }
 
-    // Update VGA Cursor
+    render_viewport();
     move_tcursor(terminal_column, terminal_row);
 }
+
+//! Deprecated left it here if i break something
+// void putchar(char c, uint8_t color)
+// {
+//     viewport_top = total_lines;
+//     if (c == 0) {
+//         return; // Don't print null characters
+//     }
+//     if (c == '\n') {
+//         terminal_column = 0;
+//         terminal_row++;
+//     } else if (c == '\t') {
+//         for (int j = 0; j < 4; j++) {
+//             putchar(' ', color); // Print 4 spaces when tab is pressed
+//         }
+//     } else {
+//         putentryat(
+//             c, color, terminal_column,
+//             terminal_row); // Display the character if it is standard
+//             ASCII
+//         terminal_column++;
+//     }
+
+//     // Wrapping and scrolling
+//     if (terminal_column == VGA_TEXT_WIDTH) {
+//         terminal_column = 0;
+//         terminal_row++; // MorganPG1 - Fix implementation for wrapping
+//         onto a
+//                         // new line
+//     }
+//     if (terminal_row == VGA_TEXT_HEIGHT) {
+//         vga_scroll_up(color);
+//         terminal_column = 0;
+//         terminal_row    = VGA_TEXT_HEIGHT - 1;
+//     }
+//     total_lines++;
+
+//     // Update VGA Cursor
+//     move_tcursor(terminal_column, terminal_row);
+// }
 
 void write(char *data, size_t size, uint8_t COLOR)
 {
@@ -82,18 +127,59 @@ void print_int(int n)
 
 // Ember2819: Add a scroll so if the screen fills you can scroll down
 // bonk enjoyer(dorito girl) : make it work
-void vga_scroll(uint8_t color)
+void render_viewport()
 {
-    size_t count   = (VGA_TEXT_HEIGHT - 1) * VGA_TEXT_WIDTH;
-    uint16_t *buff = (uint16_t *)VGA_TEXT_ADDR;
-    // Move all lines up
-    for (size_t i = 0; i < count; i++)
-        buff[i] = buff[i + VGA_TEXT_WIDTH];
-    // Clear the last line
-    for (size_t i = 0; i < VGA_TEXT_WIDTH; i++)
-        buff[count + i] = vga_entry(' ', color);
-}
+    uint16_t *vga = (uint16_t *)VGA_TEXT_ADDR;
 
+    for (size_t y = 0; y < VGA_TEXT_HEIGHT; y++) {
+        memcpy(&vga[y * VGA_TEXT_WIDTH], console_history[viewport_top + y],
+               VGA_TEXT_WIDTH);
+    }
+}
+void scroll_up()
+{
+    if (viewport_top >= total_lines-VGA_TEXT_HEIGHT*2+1) {
+        follow_output = false;
+    }
+    
+    if(viewport_top == 0)
+        return;
+    if (viewport_top > 0)
+        viewport_top--;
+}
+void scroll_down()
+{   
+    if (viewport_top >= total_lines-VGA_TEXT_HEIGHT*2+1) {
+        follow_output = true;
+        
+    }
+    if (viewport_top + VGA_TEXT_HEIGHT < total_lines)
+        viewport_top++;
+}
+// void vga_scroll_down(uint8_t color)
+// {
+//     if(viewport_top < VGA_TEXT_HEIGHT)
+//         return;
+
+//     int history_index = viewport_top - VGA_TEXT_HEIGHT;
+
+//     if(history_index < 0 || history_index >= SCROLLBACK_LINES)
+//         return;
+
+//     uint16_t *buff = (uint16_t*)VGA_TEXT_ADDR;
+
+//     size_t total = VGA_TEXT_WIDTH * VGA_TEXT_HEIGHT;
+
+//     // Move screen DOWN by one row
+//     for(size_t i = total; i-- > VGA_TEXT_WIDTH;)
+//         buff[i] = buff[i - VGA_TEXT_WIDTH];
+
+//     // Copy history line into first row
+//     for(size_t i = 0; i < VGA_TEXT_WIDTH; i++)
+//         buff[i] = console_history[history_index][i];
+
+//     viewport_top--;
+// }
 void terminal_clear(uint8_t color)
 {
     vga_clear(color);
@@ -155,7 +241,8 @@ void input(unsigned char *buff, size_t buffer_size, uint8_t color)
             if (sc == KEY_DOWN && browse_idx > 0)
                 browse_idx--;
 
-            // Pick the string to show: restore saved input or a history slot.
+            // Pick the string to show: restore saved input or a history
+            // slot.
             unsigned char *src;
             if (browse_idx == 0) {
                 src = saved_input;
@@ -261,35 +348,36 @@ void print_hex(uint32_t n)
         putchar(tmp + '0', VGA_COLOR_WHITE);
     }
 }
+
 void terminal_init() { register_mouse_callback(get_mouse_event); }
 
 void get_mouse_event(mouse_event_data_t md)
 {
-   
-    // if (md.scroll-7 < 0) {
-    //     vga_scroll(VGA_COLOR_GREEN);
-    // }
-    // if (md.scroll-7 > 0) {
-    //     vga_scroll(VGA_COLOR_GREEN);
-    // }
-   
+    int scroll = md.scroll == 0 ? 0 : md.scroll - 8;
+    if (scroll) {
+        if (scroll < 0) {
+            scroll_down();
+        }
+        if (scroll > 0) {
 
+            scroll_up();
+        }
+    }
+    render_viewport();
     // Now assign to md.scroll and check again
     draw_cursor(md.x, md.y, 1);
 }
-#define VGA_MEMORY ((uint16_t *)0xB8000)
-#define VGA_WIDTH  80
-#define VGA_HEIGHT 2
 
 void draw_cursor(int x, int y, int visible)
 {
-    uint16_t *new_cell = VGA_MEMORY + (y * VGA_WIDTH + x);
+    uint16_t *new_cell = VGA_MEMORY + (y * VGA_TEXT_WIDTH + x);
 
     if (visible) {
         // FIRST: If cursor is already drawn somewhere else, restore THAT
         // position
         if (cursor.is_drawn) {
-            uint16_t *old_cell = VGA_MEMORY + (cursor.y * VGA_WIDTH + cursor.x);
+            uint16_t *old_cell =
+                VGA_MEMORY + (cursor.y * VGA_TEXT_WIDTH + cursor.x);
             *old_cell =
                 cursor.original_cell; // Restore old position's background
             cursor.is_drawn = 0;
@@ -311,33 +399,28 @@ void draw_cursor(int x, int y, int visible)
         // Just hide the cursor (restore current position)
         if (cursor.is_drawn) {
             uint16_t *current_cell =
-                VGA_MEMORY + (cursor.y * VGA_WIDTH + cursor.x);
+                VGA_MEMORY + (cursor.y * VGA_TEXT_HEIGHT + cursor.x);
             *current_cell   = cursor.original_cell;
             cursor.is_drawn = 0;
         }
     }
 }
+static int console_history_tail = 0;
 
-// Scroll up (move content down, show previous content)
-void vga_scroll_up(int lines)
+void add_to_history(void)
 {
-    for (int s = 0; s < lines; s++) {
-        // Move all lines down
-        for (size_t i = (VGA_TEXT_HEIGHT - 1) * VGA_TEXT_WIDTH; i > 0; i--) {
-            ((uint16_t *)VGA_TEXT_ADDR)[i] =
-                ((uint16_t *)VGA_TEXT_ADDR)[i - VGA_TEXT_WIDTH];
-        }
-        // Clear top line
-        for (size_t i = 0; i < VGA_TEXT_WIDTH; i++) {
-            ((uint16_t *)VGA_TEXT_ADDR)[i] = vga_entry(' ', VGA_COLOR_GREEN);
-        }
+    // Bounds check
+    if (console_history_tail >= SCROLLBACK_LINES) {
+        console_history_tail = 0;
     }
-}
 
-// Scroll down (move content up, show newer content)
-void vga_scroll_down(int lines)
-{
-    for (int s = 0; s < lines; s++) {
-        vga_scroll(VGA_COLOR_GREEN); // Your existing function
+    uint16_t *buff = (uint16_t *)VGA_TEXT_ADDR;
+
+    // Save the line that's about to scroll off (line 0 of display)
+    // NOT current_line * width
+    for (int i = 0; i < VGA_TEXT_WIDTH; i++) {
+        console_history[console_history_tail][i] = buff[i];
     }
+
+    console_history_tail++;
 }

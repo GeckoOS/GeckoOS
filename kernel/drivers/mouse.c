@@ -201,9 +201,11 @@ void mouse_init()
 
     // enable mouse device
     mouse_wait(true);
+    outb(PS2_CMD_PORT, MOUSE_CMD_CMD);
+    ack=mouse_read();
     outb(PS2_CMD_PORT, 0xA8);
 
-    outb(MOUSE_DATA_PORT, 0xF5);
+    //outb(MOUSE_DATA_PORT, 0xF5);
 
     // print mouse id
 
