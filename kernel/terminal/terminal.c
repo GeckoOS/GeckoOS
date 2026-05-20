@@ -17,7 +17,7 @@ static bool follow_output = true; // self explanatory
 // column is x and row in y
 void putchar(char c, uint8_t color)
 {
-    terminal_row = total_lines - viewport_top;
+
     // the position in history we writing at
     // equivalent with terminal column in vga coords
     if (c == 0) {
@@ -41,11 +41,18 @@ void putchar(char c, uint8_t color)
         terminal_column = 0;
         // MorganPG1 - Fix implementation for wrapping onto
         total_lines++;
-        viewport_top++;
     }
-    if (terminal_row >= VGA_TEXT_HEIGHT && follow_output) {
-        scroll_down();
+    if (follow_output) {
+        int new_top = total_lines - VGA_TEXT_HEIGHT + 1;
+
+        if (new_top < 0)
+            new_top = 0;
+
+        viewport_top = new_top;
     }
+    terminal_row = total_lines - viewport_top;
+
+    
 
     render_viewport();
     move_tcursor(terminal_column, terminal_row);
@@ -133,26 +140,26 @@ void render_viewport()
 
     for (size_t y = 0; y < VGA_TEXT_HEIGHT; y++) {
         memcpy(&vga[y * VGA_TEXT_WIDTH], console_history[viewport_top + y],
-               VGA_TEXT_WIDTH);
+               VGA_TEXT_WIDTH * sizeof(uint16_t));
     }
 }
 void scroll_up()
 {
-    if (viewport_top >= total_lines - VGA_TEXT_HEIGHT * 2 + 1) {
+    if (viewport_top >= total_lines - VGA_TEXT_HEIGHT  + 1) {
         follow_output = false;
     }
 
     if (viewport_top == 0)
         return;
-    if (viewport_top > 0)
+    if (viewport_top >= 0)
         viewport_top--;
 }
 void scroll_down()
 {
-    if (viewport_top >= total_lines - VGA_TEXT_HEIGHT * 2 + 1) {
+    if (viewport_top >= total_lines - VGA_TEXT_HEIGHT + 1) {
         follow_output = true;
     }
-    if (viewport_top + VGA_TEXT_HEIGHT < total_lines)
+    if (viewport_top + VGA_TEXT_HEIGHT <= total_lines)
         viewport_top++;
 }
 void terminal_clear(uint8_t color)
@@ -165,9 +172,9 @@ void terminal_clear(uint8_t color)
             console_history[y][x] = blank;
         }
     }
-    total_lines=0;
+    total_lines     = 0;
     terminal_column = 0;
-    viewport_top=0;
+    viewport_top    = 0;
     move_tcursor(0, 0);
 }
 
