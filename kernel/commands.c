@@ -110,18 +110,18 @@ static const char* help_lines[] = {
 #define SPACE_SC 0x39
 
 static void cmd_help(uint8_t color) {
-    int total_lines = 0;
-    while (help_lines[total_lines] != 0) total_lines++;
+    int num_lines = 0;
+    while (help_lines[num_lines] != 0) num_lines++;
 
     int rows = 20;
-    int pages = (total_lines + rows - 1) / rows;
+    int pages = (num_lines + rows - 1) / rows;
     int page = 0;
 
     while (1) {
         terminal_clear(color);
         int start = page * rows;
         int end = start + rows;
-        if (end > total_lines) end = total_lines;
+        if (end > num_lines) end = num_lines;
 
         for (int i = start; i < end; i++) {
             if (help_lines[i][0] == '-') {
@@ -148,6 +148,7 @@ static void cmd_help(uint8_t color) {
             if (sc & 0x80) continue;
             if (sc == 0) continue;
             if (sc == ENTER_SC) return;
+            if (pages <= 1) return;   /* single page: any key exits */
             if (sc == SPACE_SC) {
                 page = (page + 1) % pages;
                 break;

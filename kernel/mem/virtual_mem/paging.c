@@ -96,14 +96,24 @@ bool vmm_init(void)
     page_table_t *pml4 = alloc_table();
     if (!pml4) return false;
 
-    /*
-     * Identity-map the first 16 MB. The physical allocator lives at
-     * 0x500000 (5 MB) and the page tables it hands out need to be
-     * reachable after CR3 switches. 4 MB wasn't enough.
-     */
     for (uint64_t phys = 0; phys < 0x1000000; phys += PAGE_SIZE) {
         if (!vmm_map(pml4, phys, phys, PTE_PRESENT | PTE_WRITABLE))
             return false;
+    }
+
+    extern uint64_t g_fb_addr;
+    extern uint32_t g_fb_height;
+    extern uint32_t g_fb_pitch;
+    if (g_fb_addr) {
+        uint64_t fb_phys_start = g_fb_addr & ~((uint64_t)PAGE_SIZE - 1);
+        uint64_t fb_size       = (uint64_t)g_fb_height * g_fb_pitch;
+        uint64_t fb_pages      = (fb_size + PAGE_SIZE - 1) / PAGE_SIZE + 1;
+        for (uint64_t i = 0; i < fb_pages; i++) {
+            uint64_t p = fb_phys_start + i * PAGE_SIZE;
+            if (!vmm_map(pml4, p, p,
+                         PTE_PRESENT | PTE_WRITABLE | PTE_CACHE_DISABLE))
+                return false;
+        }
     }
 
     uint64_t kernel_phys = 0x100000;

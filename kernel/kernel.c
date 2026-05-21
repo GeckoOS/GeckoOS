@@ -30,12 +30,18 @@ void _entry() {
     kalloc_init();
 
     /*
-     * Bitmap goes at 0x500000 (512 bytes). Free region starts one page
-     * later at 0x501000 so the allocator doesn't hand out its own bitmap
-     * as the first allocation.
+     * Place the physical allocator bitmap immediately after BSS, page-aligned.
+     * Using _bss_end from the linker script means this is always safe no matter
+     * how large BSS grows — previously it was hardcoded to 0x500000 which BSS
+     * was overrunning (console_history alone is ~2.5MB in BSS).
      */
-    initialize_memory_manager(0x500000, 0x1000000);
-    initialize_memory_region(0x501000, 0xFFF000);
+    extern uint64_t _bss_end;
+    uint64_t bitmap_start = ((uint64_t)&_bss_end + 0xFFF) & ~0xFFFULL;
+    uint64_t free_start   = bitmap_start + 0x1000;
+    uint64_t mem_end      = 0x1000000;
+
+    initialize_memory_manager(bitmap_start, mem_end);
+    initialize_memory_region(free_start, mem_end - free_start);
 
     vga_clear(TERM_COLOR);
     printc("GeckoOS Version 2.0\n", TERM_COLOR);

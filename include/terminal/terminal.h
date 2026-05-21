@@ -8,8 +8,14 @@
 #include <drivers/vga.h>
 
 #define VGA_MEMORY ((uint16_t *)0xB8000)
-#define VGA_TEXT_WIDTH  80
-#define VGA_TEXT_HEIGHT 25
+
+/* vga.h defines VGA_TEXT_WIDTH/HEIGHT for the legacy 80x25 text mode.
+ * We redefine them here for the framebuffer terminal (1024x768 / 8x16 font).
+ * Undef first to suppress -Wmacro-redefined. */
+#undef  VGA_TEXT_WIDTH
+#define VGA_TEXT_WIDTH  128   /* 1024px / 8px font  = 128 cols */
+#undef  VGA_TEXT_HEIGHT
+#define VGA_TEXT_HEIGHT 48    /* 768px  / 16px font = 48 rows  */
 
 #define HISTORY_SIZE 10
 static unsigned char history_entries[HISTORY_SIZE][512];
@@ -34,7 +40,7 @@ void print_hex(uint32_t n);
 
 ;
 
-#define SCROLLBACK_LINES 10000 // Store up to 10000 lines
+#define SCROLLBACK_LINES 1000 /* 1000 * 128 cols * 2 bytes = 256KB in BSS */
 static uint16_t console_history[SCROLLBACK_LINES][VGA_TEXT_WIDTH]; //console history
 static int total_lines=0;//total lines in history should be update when terminal row is
 static int viewport_top=0;//viewport lines(the current line we at should be )

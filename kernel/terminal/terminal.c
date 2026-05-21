@@ -1,102 +1,169 @@
 #include "terminal/printf.h"
+#include <drivers/framebuffer.h>
 #include <drivers/keyboard.h>
 #include <drivers/mouse.h>
-#include <drivers/vga.h>
 #include <gk/gk.h>
 #include <mem.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <terminal/terminal.h>
 
-uint16_t terminal_column = 0; // the column the terminal is at for writing
-uint16_t terminal_row    = 0; // the row the terminal is at for writing
+extern uint64_t g_fb_addr;
+extern uint32_t g_fb_width;
+extern uint32_t g_fb_height;
+extern uint32_t g_fb_pitch;
+extern uint8_t  g_fb_bpp;
+
+#define FONT_WIDTH  8
+#define FONT_HEIGHT 16
+
+static uint32_t cursor_x = 0;
+
+static uint32_t fb_cols;
+static uint32_t fb_rows;
+
+static void fb_update_dims(void)
+{
+    fb_cols = g_fb_width / FONT_WIDTH;
+    fb_rows = g_fb_height / FONT_HEIGHT;
+}
+
+static const uint32_t vga_to_rgb[16] = {
+    0x00000000,
+    0x000000AA,
+    0x0000AA00,
+    0x0000AAAA,
+    0x00AA0000,
+    0x00AA00AA,
+    0x00AA5500,
+    0x00AAAAAA,
+    0x00555555,
+    0x005555FF,
+    0x0055FF55,
+    0x0055FFFF,
+    0x00FF5555,
+    0x00FF55FF,
+    0x00FFFF55,
+    0x00FFFFFF,
+};
+
+static uint32_t vga_fg_to_rgb(uint8_t color)
+{
+    return vga_to_rgb[color & 0xF];
+}
+
+static uint32_t vga_bg_to_rgb(uint8_t color)
+{
+    return vga_to_rgb[(color >> 4) & 0xF];
+}
+
+static void fb_draw_cursor_block(uint32_t cx, uint32_t cy, uint32_t bg)
+{
+    for (uint32_t row = 0; row < FONT_HEIGHT; row++) {
+        for (uint32_t col = 0; col < FONT_WIDTH; col++) {
+            uint32_t px = cx * FONT_WIDTH + col;
+            uint32_t py = cy * FONT_HEIGHT + row;
+            if (px >= g_fb_width || py >= g_fb_height) {
+                continue;
+            }
+            uint32_t color = (row >= FONT_HEIGHT - 2) ? 0x00FFFFFF : bg;
+            volatile uint32_t *pixel = (volatile uint32_t *)(g_fb_addr + (uint64_t)py * g_fb_pitch);
+            pixel[px] = color;
+        }
+    }
+}
+
+uint16_t terminal_column = 0;
+uint16_t terminal_row    = 0;
 static int history_count = 0;
 static int history_head  = 0;
 
-static bool follow_output = true; // self explanatory
-// column is x and row in y
+static bool follow_output = true;
+
 void putchar(char c, uint8_t color)
 {
-
-    // the position in history we writing at
-    // equivalent with terminal column in vga coords
-    if (c == 0) {
-        return; // Don't print null characters
+    if (fb_cols == 0) {
+        fb_update_dims();
     }
-    if (c == '\n') {
-        terminal_column = 0;
-        total_lines++;
 
+    uint32_t fg = vga_fg_to_rgb(color);
+    uint32_t bg = vga_bg_to_rgb(color);
+
+    if (c == 0) {
+        return;
+    }
+
+    if (c == '\n') {
+        /* Blank the rest of this history row so render_viewport is clean */
+        for (uint32_t k = cursor_x; k < fb_cols && k < VGA_TEXT_WIDTH; k++) {
+            console_history[total_lines][k] = vga_entry(' ', color);
+        }
+        cursor_x = 0;
+        total_lines++;
+        if (total_lines >= SCROLLBACK_LINES)
+            total_lines = SCROLLBACK_LINES - 1;
+    } else if (c == '\b') {
+        if (cursor_x > 0) {
+            cursor_x--;
+        } else if (total_lines > 0) {
+            total_lines--;
+            cursor_x = (fb_cols < VGA_TEXT_WIDTH ? fb_cols : VGA_TEXT_WIDTH) - 1;
+        }
+        console_history[total_lines][cursor_x] = vga_entry(' ', color);
     } else if (c == '\t') {
         for (int j = 0; j < 4; j++) {
-            putchar(' ', color); // Print 4 spaces when tab is pressed
+            putchar(' ', color);
         }
+        return;
     } else {
-        console_history[total_lines][terminal_column] = vga_entry(c, color);
-
-        terminal_column++;
+        if (cursor_x < VGA_TEXT_WIDTH) {
+            console_history[total_lines][cursor_x] = vga_entry(c, color);
+        }
+        cursor_x++;
     }
-    // Wrapping and scrolling
-    if (terminal_column == VGA_TEXT_WIDTH) {
-        terminal_column = 0;
-        // MorganPG1 - Fix implementation for wrapping onto
+
+    /* Word-wrap */
+    if (cursor_x >= fb_cols) {
+        cursor_x = 0;
         total_lines++;
+        if (total_lines >= SCROLLBACK_LINES)
+            total_lines = SCROLLBACK_LINES - 1;
     }
+
+    /* Compute the screen row this character belongs to */
+    int screen_row = (int)total_lines - viewport_top;
+
+    /* Update viewport to follow output; full redraw only when it scrolls */
     if (follow_output) {
-        int new_top = total_lines - VGA_TEXT_HEIGHT + 1;
-
-        if (new_top < 0)
-            new_top = 0;
-
-        viewport_top = new_top;
+        int new_top = (int)total_lines - (int)fb_rows + 1;
+        if (new_top < 0) new_top = 0;
+        if (new_top != viewport_top) {
+            viewport_top = new_top;
+            screen_row   = (int)total_lines - viewport_top;
+            render_viewport();
+            terminal_row    = (uint16_t)(total_lines - viewport_top);
+            terminal_column = cursor_x;
+            return;
+        }
     }
-    terminal_row = total_lines - viewport_top;
 
-    
+    /* Fast path: draw only the character that just changed */
+    if (screen_row >= 0 && screen_row < (int)fb_rows) {
+        if (c == '\b') {
+            fb_draw_char(cursor_x * FONT_WIDTH,
+                         (uint32_t)screen_row * FONT_HEIGHT,
+                         ' ', fg, bg);
+        } else if (c != '\n') {
+            uint32_t draw_col = cursor_x > 0 ? cursor_x - 1 : 0;
+            fb_draw_char(draw_col * FONT_WIDTH,
+                         (uint32_t)screen_row * FONT_HEIGHT,
+                         c, fg, bg);
+        }
+    }
 
-    render_viewport();
-    move_tcursor(terminal_column, terminal_row);
+    terminal_row    = (uint16_t)(total_lines - viewport_top);
+    terminal_column = cursor_x;
 }
-
-//! Deprecated left it here if i break something
-// void putchar(char c, uint8_t color)
-// {
-//     viewport_top = total_lines;
-//     if (c == 0) {
-//         return; // Don't print null characters
-//     }
-//     if (c == '\n') {
-//         terminal_column = 0;
-//         terminal_row++;
-//     } else if (c == '\t') {
-//         for (int j = 0; j < 4; j++) {
-//             putchar(' ', color); // Print 4 spaces when tab is pressed
-//         }
-//     } else {
-//         putentryat(
-//             c, color, terminal_column,
-//             terminal_row); // Display the character if it is standard
-//             ASCII
-//         terminal_column++;
-//     }
-
-//     // Wrapping and scrolling
-//     if (terminal_column == VGA_TEXT_WIDTH) {
-//         terminal_column = 0;
-//         terminal_row++; // MorganPG1 - Fix implementation for wrapping
-//         onto a
-//                         // new line
-//     }
-//     if (terminal_row == VGA_TEXT_HEIGHT) {
-//         vga_scroll_up(color);
-//         terminal_column = 0;
-//         terminal_row    = VGA_TEXT_HEIGHT - 1;
-//     }
-//     total_lines++;
-
-//     // Update VGA Cursor
-//     move_tcursor(terminal_column, terminal_row);
-// }
 
 void write(char *data, size_t size, uint8_t COLOR)
 {
@@ -105,7 +172,6 @@ void write(char *data, size_t size, uint8_t COLOR)
     }
 }
 
-// just an alias
 void printc(char *data, uint8_t COLOR)
 {
     for (size_t i = 0; data[i]; i++) {
@@ -119,12 +185,14 @@ void kprintf(int severity, char *data, ...)
         putchar(data[i], VGA_COLOR_WHITE);
     }
 }
+
 void print(char *data)
 {
     for (size_t i = 0; data[i]; i++) {
         putchar(data[i], VGA_COLOR_WHITE);
     }
 }
+
 void print_int(int n)
 {
     char buff[32];
@@ -132,50 +200,56 @@ void print_int(int n)
     print(buff);
 }
 
-// Ember2819: Add a scroll so if the screen fills you can scroll down
-// bonk enjoyer(dorito girl) : make it work
 void render_viewport()
 {
-    uint16_t *vga = (uint16_t *)VGA_TEXT_ADDR;
-
-    for (size_t y = 0; y < VGA_TEXT_HEIGHT; y++) {
-        memcpy(&vga[y * VGA_TEXT_WIDTH], console_history[viewport_top + y],
-               VGA_TEXT_WIDTH * sizeof(uint16_t));
+    for (size_t y = 0; y < fb_rows && (size_t)(viewport_top + y) < SCROLLBACK_LINES; y++) {
+        for (size_t x = 0; x < fb_cols; x++) {
+            uint16_t entry = console_history[viewport_top + y][x];
+            char c = (char)(entry & 0xFF);
+            uint8_t color = (uint8_t)(entry >> 8);
+            uint32_t fg = vga_fg_to_rgb(color);
+            uint32_t bg = vga_bg_to_rgb(color);
+            fb_draw_char(x * FONT_WIDTH, y * FONT_HEIGHT, c, fg, bg);
+        }
     }
 }
+
 void scroll_up()
 {
-    if (viewport_top >= total_lines - VGA_TEXT_HEIGHT  + 1) {
+    if (viewport_top >= total_lines - (int)fb_rows + 1) {
         follow_output = false;
     }
-
     if (viewport_top == 0)
         return;
     if (viewport_top >= 0)
         viewport_top--;
 }
+
 void scroll_down()
 {
-    if (viewport_top >= total_lines - VGA_TEXT_HEIGHT + 1) {
+    if (viewport_top >= total_lines - (int)fb_rows + 1) {
         follow_output = true;
     }
-    if (viewport_top + VGA_TEXT_HEIGHT <= total_lines)
+    if (viewport_top + (int)fb_rows <= total_lines)
         viewport_top++;
 }
+
 void terminal_clear(uint8_t color)
 {
-    vga_clear(color);
-    uint16_t blank = vga_entry(' ', color);
+    uint32_t bg = vga_bg_to_rgb(color);
+    fb_clear(bg);
 
+    uint16_t blank = vga_entry(' ', color);
     for (size_t y = 0; y < SCROLLBACK_LINES; y++) {
         for (size_t x = 0; x < VGA_TEXT_WIDTH; x++) {
             console_history[y][x] = blank;
         }
     }
     total_lines     = 0;
+    cursor_x        = 0;
     terminal_column = 0;
+    terminal_row    = 0;
     viewport_top    = 0;
-    move_tcursor(0, 0);
 }
 
 static void history_push(unsigned char *buf)
@@ -194,17 +268,14 @@ static void history_push(unsigned char *buf)
 
 void input(unsigned char *buff, size_t buffer_size, uint8_t color)
 {
-    size_t buff_count = 0; // Initialise the buffer count
-    size_t start_x    = terminal_column;
-    size_t start_y    = terminal_row;
+    size_t buff_count  = 0;
+    size_t start_x     = cursor_x;
+    size_t start_line  = total_lines;  /* absolute history line at prompt */
 
-    // Ember2891: history
     int browse_idx = 0;
     unsigned char saved_input[512];
-    // saved_input[0] = '\0';
 
     while (true) {
-        // Wait for scancode
         scancode_t sc = ps2_kb_wfi();
 
         if (sc & 0x80)
@@ -212,11 +283,7 @@ void input(unsigned char *buff, size_t buffer_size, uint8_t color)
         if (sc == 0)
             continue;
 
-        // If up or down arrow is pressed
         if (sc == KEY_UP || sc == KEY_DOWN) {
-
-            // If up is pressed and the browse index is 0
-            // then copy the input buffer into saved_input
             if (sc == KEY_UP && browse_idx == 0) {
                 size_t k;
                 for (k = 0; k < buff_count; k++) {
@@ -225,14 +292,11 @@ void input(unsigned char *buff, size_t buffer_size, uint8_t color)
                 saved_input[k] = '\0';
             }
 
-            // Handle increasing and decreasing the browse index
             if (sc == KEY_UP && browse_idx < history_count)
                 browse_idx++;
             if (sc == KEY_DOWN && browse_idx > 0)
                 browse_idx--;
 
-            // Pick the string to show: restore saved input or a history
-            // slot.
             unsigned char *src;
             if (browse_idx == 0) {
                 src = saved_input;
@@ -242,71 +306,54 @@ void input(unsigned char *buff, size_t buffer_size, uint8_t color)
                 src = history_entries[slot];
             }
 
-            // Clear the line in the framebuffer
-            for (size_t k = 0; k < terminal_column - start_x; k++) {
-                size_t col = (start_x + k) % VGA_TEXT_WIDTH;
-                size_t row = start_y + (start_x + k) / VGA_TEXT_WIDTH;
-                putentryat(' ', color, col, row);
+            /* Erase current input from history buffer, reset cursor */
+            for (size_t k = 0; k < buff_count; k++) {
+                size_t abs_col   = start_x + k;
+                size_t hist_line = start_line + abs_col / fb_cols;
+                size_t hist_col  = abs_col % fb_cols;
+                if (hist_col < VGA_TEXT_WIDTH)
+                    console_history[hist_line][hist_col] = vga_entry(' ', color);
             }
+            cursor_x    = start_x;
+            total_lines = start_line;
+            render_viewport();
 
-            // Reset software and hardware cursor back to start of input.
-            terminal_column = start_x;
-            terminal_row    = start_y;
-            move_tcursor(start_x, start_y);
-
-            // Move the string to show into the framebuffer
             size_t k;
             for (k = 0; src[k] && k < buffer_size - 1; k++) {
                 buff[k] = src[k];
                 putchar(src[k], color);
             }
 
-            // Null terminate the buffer
             buff_count       = k;
             buff[buff_count] = '\0';
             continue;
         }
+
         unsigned char ascii = scancode_to_ascii(sc);
 
-        // Exit input if enter is pressed
         if (ascii == '\n')
             break;
 
-        // Handle backspace
         if (ascii == '\b') {
             if (buff_count > 0) {
-                if (terminal_column > 0) {
-                    terminal_column--;
-                } else if (terminal_row > 0) {
-                    terminal_row = VGA_TEXT_WIDTH - 1;
-                    terminal_row--;
-                }
-
-                putentryat(' ', color, terminal_column, terminal_row);
+                putchar('\b', color);
                 buff_count--;
                 buff[buff_count] = 0;
-
-                // Update cursor
-                move_tcursor(terminal_column, terminal_row);
             }
             continue;
         }
 
-        // Display the character entered and place it in the input buffer
         if (buff_count < buffer_size - 1 && ascii >= 0x20) {
             buff[buff_count] = ascii;
-
             putchar(ascii, color);
             buff_count++;
         }
     }
 
-    // Null terminate the buffer
     buff[buff_count] = '\0';
-
-    // Ember2819: arrow recall
     history_push(buff);
 }
+
 void print_hex(uint32_t n)
 {
     int32_t tmp;
@@ -339,7 +386,12 @@ void print_hex(uint32_t n)
     }
 }
 
-void terminal_init() { register_mouse_callback(get_mouse_event); }
+void terminal_init()
+{
+    fb_cols = g_fb_width / FONT_WIDTH;
+    fb_rows = g_fb_height / FONT_HEIGHT;
+    register_mouse_callback(get_mouse_event);
+}
 
 void get_mouse_event(mouse_event_data_t md)
 {
@@ -349,67 +401,79 @@ void get_mouse_event(mouse_event_data_t md)
             scroll_down();
         }
         if (scroll > 0) {
-
             scroll_up();
         }
     }
     render_viewport();
-    // Now assign to md.scroll and check again
     draw_cursor(md.x, md.y, 1);
 }
 
 void draw_cursor(int x, int y, int visible)
 {
-    uint16_t *new_cell = VGA_MEMORY + (y * VGA_TEXT_WIDTH + x);
-
     if (visible) {
-        // FIRST: If cursor is already drawn somewhere else, restore THAT
-        // position
         if (cursor.is_drawn) {
-            uint16_t *old_cell =
-                VGA_MEMORY + (cursor.y * VGA_TEXT_WIDTH + cursor.x);
-            *old_cell =
-                cursor.original_cell; // Restore old position's background
+            uint32_t old_cx = cursor.x;
+            uint32_t old_cy = cursor.y;
+            uint16_t old_entry = console_history[viewport_top + old_cy][old_cx];
+            char old_c = (char)(old_entry & 0xFF);
+            uint8_t old_color = (uint8_t)(old_entry >> 8);
+            uint32_t fg = vga_fg_to_rgb(old_color);
+            uint32_t bg = vga_bg_to_rgb(old_color);
+            fb_draw_char(old_cx * FONT_WIDTH, old_cy * FONT_HEIGHT, old_c, fg, bg);
             cursor.is_drawn = 0;
         }
 
-        // THEN: Save background at NEW position
-        cursor.original_cell = *new_cell;
-        cursor.x             = x;
-        cursor.y             = y;
+        uint32_t cx = x;
+        uint32_t cy = y;
+        uint16_t entry = console_history[viewport_top + cy][cx];
+        uint8_t old_color = (uint8_t)(entry >> 8);
+        uint32_t bg = vga_bg_to_rgb(old_color);
 
-        // Draw cursor at new position
-        uint8_t character = *new_cell & 0xFF;
-        uint8_t old_attr  = (*new_cell >> 8) & 0xFF;
-        uint8_t new_attr  = ((old_attr & 0xF0) >> 4) | ((old_attr & 0x0F) << 4);
-        *new_cell         = character | (new_attr << 8);
+        fb_draw_cursor_block(cx, cy, bg);
 
+        cursor.x = cx;
+        cursor.y = cy;
         cursor.is_drawn = 1;
     } else {
-        // Just hide the cursor (restore current position)
         if (cursor.is_drawn) {
-            uint16_t *current_cell =
-                VGA_MEMORY + (cursor.y * VGA_TEXT_HEIGHT + cursor.x);
-            *current_cell   = cursor.original_cell;
+            uint32_t cx = cursor.x;
+            uint32_t cy = cursor.y;
+            uint16_t entry = console_history[viewport_top + cy][cx];
+            char c = (char)(entry & 0xFF);
+            uint8_t color = (uint8_t)(entry >> 8);
+            uint32_t fg = vga_fg_to_rgb(color);
+            uint32_t bg = vga_bg_to_rgb(color);
+            fb_draw_char(cx * FONT_WIDTH, cy * FONT_HEIGHT, c, fg, bg);
             cursor.is_drawn = 0;
         }
     }
 }
+
 static int console_history_tail = 0;
 
 void add_to_history(void)
 {
-    // Bounds check
     if (console_history_tail >= SCROLLBACK_LINES) {
         console_history_tail = 0;
     }
 
-    uint16_t *buff = (uint16_t *)VGA_TEXT_ADDR;
+    for (size_t x = 0; x < fb_cols && x < VGA_TEXT_WIDTH; x++) {
+        uint32_t px = x * FONT_WIDTH;
+        uint32_t py = 0;
+        unsigned char glyph_line = 0;
 
-    // Save the line that's about to scroll off (line 0 of display)
-    // NOT current_line * width
-    for (int i = 0; i < VGA_TEXT_WIDTH; i++) {
-        console_history[console_history_tail][i] = buff[i];
+        uint16_t entry = 0;
+        for (uint32_t col = 0; col < FONT_WIDTH; col++) {
+            if (px + col >= g_fb_width || py >= g_fb_height) {
+                continue;
+            }
+            volatile uint32_t *pixel = (volatile uint32_t *)(g_fb_addr + (uint64_t)py * g_fb_pitch);
+            if (pixel[px + col] != 0) {
+                glyph_line |= (0x80 >> col);
+            }
+        }
+        (void)glyph_line;
+        console_history[console_history_tail][x] = entry;
     }
 
     console_history_tail++;

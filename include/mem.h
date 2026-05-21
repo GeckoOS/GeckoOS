@@ -15,6 +15,7 @@ struct block{
 };
 
 void* memcpy(void* dest, const void* src, unsigned long n);
+void* memmove(void* dest, const void* src, unsigned long n);
 
 static block* find_free_block(unsigned long size) ;
 //Ember2819

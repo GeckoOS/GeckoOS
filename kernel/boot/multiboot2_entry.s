@@ -23,9 +23,18 @@ mb2_header_start:
     dd HEADER_LENGTH
     dd HEADER_CHECKSUM
 align 8
-    dw 0
-    dw 0
-    dd 8
+    ; Framebuffer request tag
+    dw 5                          ; type = MULTIBOOT2_HEADER_TAG_FRAMEBUFFER
+    dw 0                          ; flags = 0 (optional)
+    dd 20                         ; size
+    dd 1024                       ; width
+    dd 768                        ; height
+    dd 32                         ; depth (bpp)
+align 8
+    ; End tag
+    dw 0                          ; type = MULTIBOOT2_HEADER_TAG_END
+    dw 0                          ; flags
+    dd 8                          ; size
 mb2_header_end:
 
 section .bootstrap_data nobits alloc write
@@ -34,6 +43,7 @@ pml4_table:     resb 4096
 pdpt_table_lo:  resb 4096
 pdpt_table_hi:  resb 4096
 pd_table:       resb 4096
+pd_table_fb:    resb 4096
 
 align 16
 early_stack_bottom: resb 16384
@@ -116,6 +126,24 @@ multiboot2_entry:
     inc ecx
     cmp ecx, 512
     jne .fill_pd
+
+    ; PD_FB: 512 × 2 MB huge pages covering 3 .. 4 GB (for framebuffer)
+    mov ecx, 0
+.fill_pd_fb:
+    mov eax, 0x200000
+    mul ecx                 ; eax = ecx * 2MB
+    add eax, 0xC0000000     ; physical address = 3GB + ecx*2MB
+    or  eax, (1 << 7) | 0x3  ; huge + present + writable
+    mov [pd_table_fb + ecx*8], eax
+    mov dword [pd_table_fb + ecx*8 + 4], 0
+    inc ecx
+    cmp ecx, 512
+    jne .fill_pd_fb
+
+    ; PDPT_LO[3] -> pd_table_fb  (maps 3-4 GB identity)
+    mov eax, pd_table_fb
+    or  eax, 0x3
+    mov [pdpt_table_lo + 3*8], eax
 
     ; enable PAE
     mov eax, cr4

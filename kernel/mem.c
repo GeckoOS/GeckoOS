@@ -5,16 +5,26 @@
 #include <stdalign.h>
 
 void *memcpy(void *dest, const void *src, unsigned long n) {
-    // n = Number of bytes
-
     unsigned char *d = dest;
     const unsigned char *s = src;
-
-    // Iterate n times, copying the byte in s into the same index in d
     for (unsigned long i = 0; i < n; i++) {
         d[i] = s[i];
     }
+    return dest;
+}
 
+void *memmove(void *dest, const void *src, unsigned long n) {
+    unsigned char *d = dest;
+    const unsigned char *s = src;
+    if (d < s) {
+        for (unsigned long i = 0; i < n; i++) {
+            d[i] = s[i];
+        }
+    } else {
+        for (unsigned long i = n; i > 0; i--) {
+            d[i - 1] = s[i - 1];
+        }
+    }
     return dest;
 }
 
