@@ -1,4 +1,3 @@
-#include "drivers/apic/lapic.h"
 #include "exe.h"
 #include "process/process.h"
 #include "terminal/printf.h"
@@ -6,8 +5,8 @@
 #include <bootoptions.h>
 #include <colors.h>
 #include <drivers/keyboard.h>
+#include <drivers/tables/timer.h>
 #include <drivers/serial.h>
-#include <elf.h>
 #include <layouts/kb_layouts.h>
 #include <terminal/terminal.h>
 #include <gk/gk.h>
@@ -23,7 +22,29 @@
 #include <net/arp.h>
 #include <drivers/e1000.h>
 
-extern uint32_t memsize_grub;
+// Helper to get Nth argument from args string
+static void get_arg(const char* args, int arg_num, char* dest, int max_len) {
+    if (!args) { dest[0] = '\0'; return; }
+    int current_arg = 0;
+    const char* p = args;
+    while (*p) {
+        while (*p == ' ') p++; // skip leading spaces
+        if (*p == '\0') break;
+        
+        if (current_arg == arg_num) {
+            int len = 0;
+            while (*p != ' ' && *p != '\0' && len < max_len - 1) {
+                dest[len++] = *p++;
+            }
+            dest[len] = '\0';
+            return;
+        }
+        
+        while (*p != ' ' && *p != '\0') p++;
+        current_arg++;
+    }
+    dest[0] = '\0';
+}
 
 // Command table
 static Command commands[] = {
@@ -59,6 +80,7 @@ static Command commands[] = {
     { "mkdir",        cmd_mkdir        },
     { "echo",         cmd_echo         },
     { "write",        cmd_write        },
+    { "dumpelf",      cmd_dumpelf      },
     { "runelf",       cmd_runelf       },
     // --- network ---
     { "ping",         cmd_ping         },
@@ -70,48 +92,53 @@ static Command commands[] = {
 
 static int num_commands = sizeof(commands) / sizeof(commands[0]);
 
+struct drive_fs_t *fs;
+
 static const char* help_lines[] = {
     "--- System ---",
-    "help        - Show this message",
-    "hello       - Say hello",
-    "contributors- List contributors",
-    "clear       - Clear the screen",
-    "version     - OS version",
-    "chars       - Print available characters",
-    "uptime      - Show system uptime (ticks)",
-    "meminfo     - Show memory info",
-    "lspci       - List PCI devices",
+    "help         - Show this message",
+    "hello        - Say hello",
+    "contributors - List contributors",
+    "clear        - Clear the screen",
+    "version      - OS version",
+    "chars        - Print available characters",
+    "uptime       - Show system uptime (ticks)",
+    "meminfo      - Show memory info",
+    "lspci        - List PCI devices",
     "",
     "--- Keyboard ---",
-    "setkeyswe   - Swedish QWERTY layout",
-    "setkeyus    - US QWERTY layout",
-    "setkeyuk    - UK QWERTY layout",
+    "setkeyswe     - Swedish QWERTY layout",
+    "setkeyus      - US QWERTY layout",
+    "setkeyuk      - UK QWERTY layout",
     "",
     "--- Timer / Power ---",
-    "sleep       - Sleep 5 seconds",
-    "ticks       - Print timer tick count",
-    "reboot      - Reboot",
+    "sleep         - Sleep 5 seconds",
+    "ticks         - Print timer tick count",
+    "reboot        - Reboot",
     "",
+
     "--- Scripting ---",
-    "gk          - GK scripting language (demo)",
-    "gk <file>   - Run a .gk script from the FS",
+    "gk                     - GK scripting language (demo)",
+    "gk <file>              - Run a .gk script from the FS",
     "",
     "--- FAT32 Filesystem ---",
-    "fsmount     - Mount the FAT32 data disk (fat32.img)",
-    "ls          - List files in root directory",
-    "cat         - Read and display a file",
-    "fsinfo      - Show volume info (label, size, clusters)",
-    "touch       - Create a new file with content",
-    "rm          - Delete a file",
-    "cp          - Copy a file to a new name",
-    "mv          - Move/rename a file",
-    "mkdir       - Create a new directory",
-    "echo        - Print text to screen",
-    "write       - Append text to an existing file",
-    "runelf      - Runs an ELF file",
+    "fsmount                - Mount the FAT32 data disk (fat32.img)",
+    "ls                     - List files in root directory",
+    "cat <file>             - Read and display a file",
+    "fsinfo                 - Show volume info (label, size, clusters)",
+    "touch <file> <content> - Create a new file with content",
+    "rm <file>              - Delete a file",
+    "cp <src> <dst>         - Copy a file to a new name",
+    "mv <src> <dst>         - Move/rename a file",
+    "mkdir <dir>            - Create a new directory",
+    "echo <text>            - Print text to screen",
+    "write <file> <text>    - Append text to an existing file",
+    "dumpelf <file>         - Dumps an ELF file",
+    "runelf <file>          - Runs an ELF file",
     "",
+
     "--- Network ---",
-    "ping <ip>   - Ping an IP address (e.g. ping 10.0.2.2)",
+    "ping <ip>  - Ping an IP address (e.g. ping 10.0.2.2)",
     "",
     "--- ACPI ---",
     "showrsdt    - Show the entries of the ACPI (The qemu ACPI is very old)",
@@ -121,7 +148,8 @@ static const char* help_lines[] = {
 
 #define SPACE_SC 0x39
 
-static void cmd_help(uint8_t color) {
+static void cmd_help(char *args, uint8_t color) {
+    (void)args;
     int num_lines = 0;
     while (help_lines[num_lines] != 0) num_lines++;
 
@@ -169,12 +197,14 @@ static void cmd_help(uint8_t color) {
     }
 }
 
-static void cmd_hello(uint8_t color) {
-    printc("\nHello, world!\n", color);
+static void cmd_hello(char *args, uint8_t color) {
+    (void)args;
+    printc("Hello, world!\n", color);
 }
 
-static void cmd_contributors(uint8_t color) {
-    printc("\n--- Contributors ---\n", color);
+static void cmd_contributors(char *args, uint8_t color) {
+    (void)args;
+    printc("--- Contributors ---\n", color);
     printc("Ember2819 - Founder\n", BOLD_COLOR);
     printc("Sifi11\n", color);
     printc("Crim\n", color);
@@ -195,33 +225,39 @@ static void cmd_contributors(uint8_t color) {
     printc("Pumpkicks\n", color);
     printc("DarkThemeGeek\n", color);
     printc("nfoxers\n", color);
+    printc("slothscript\n", color);
 }
 
-static void cmd_setkeyswe(uint8_t color) {
+static void cmd_setkeyswe(char *args, uint8_t color) {
+    (void)args;
     set_layout(LAYOUTS[1]);
-    printc("\nKeyboard layout set to Swedish QWERTY\n", color);
+    printc("Keyboard layout set to Swedish QWERTY\n", color);
 }
 
-static void cmd_setkeyus(uint8_t color) {
+static void cmd_setkeyus(char *args, uint8_t color) {
+    (void)args;
     set_layout(LAYOUTS[0]);
-    printc("\nKeyboard layout set to US QWERTY\n", color);
+    printc("Keyboard layout set to US QWERTY\n", color);
 }
 
-static void cmd_setkeyuk(uint8_t color) {
+static void cmd_setkeyuk(char *args, uint8_t color) {
+    (void)args;
     set_layout(LAYOUTS[2]);
-    printc("\nKeyboard layout set to UK QWERTY\n", color);
+    printc("Keyboard layout set to UK QWERTY\n", color);
 }
 
-static void cmd_clear(uint8_t color) {
+static void cmd_clear(char *args, uint8_t color) {
+    (void)args;
     terminal_clear(color);
 }
 
-static void cmd_version(uint8_t color) {
-    printc("\nGeckoOS v2.0 (GRUB/Multiboot2)\n", color);
+static void cmd_version(char *args, uint8_t color) {
+    (void)args;
+    printc("GeckoOS v2.0 (GRUB/Multiboot2)\n", color);
 }
 
-static void cmd_chars(uint8_t color) {
-    printc("\n\n  ", color);
+static void cmd_chars(char *args, uint8_t color) {
+    (void)args;
     for (int i = 1; i < 256; i++) {
         if (i == 9 || i == 10) {
             printc(" ", color);
@@ -235,35 +271,43 @@ static void cmd_chars(uint8_t color) {
     printc("\n", color);
 }
 
-static void cmd_sleep5(uint8_t color) {
-    print("\nSleeping for 5 seconds...\n");
-    // sleep(5);
-    print("Done!\n");
+static void cmd_sleep5(char *args, uint8_t color) {
+    (void)args;
+    printc("Sleeping for 5 seconds...\n", color);
+    sleep(5);
+    printc("Done!\n", color);
 }
 
-static void cmd_reboot(uint8_t color) {
-    print("\nRebooting...");
+static void cmd_reboot(char *args, uint8_t color) {
+    (void)args;
+    printc("Rebooting...", color);
     reboot();
 }
 
-static void cmd_print_ticks(uint8_t color) {
-    print("\nTick: ");
-    print_int(lapic_timer_tick);
-    print("\n");
+static void cmd_print_ticks(char *args, uint8_t color) {
+    (void)args;
+    printc("Tick: ", color);
+    print_int(get_tick());
+    printc("\n", color);
 }
 
-static void cmd_fsmount(uint8_t color) {
-    putchar('\n', color);
-    for (int i = 1; i < 6; i++) {
-        printf("Trying drive %d", i);
-        if (fsmount(i)) break;
+static void cmd_fsmount(char *args, uint8_t color) {
+    (void)args;
+    if (!get_kdrive(1)) {
+        printc("No slave drive found. Is fat32.img attached as a second drive?\n", VGA_COLOR_RED);
+        return;
     }
+    fs = fs_drive_open(get_kdrive(1));
+    if (fs == 0) {
+        printc("Filesystem mount failed. Is fat32.img a valid FAT32 image?\n", VGA_COLOR_RED);
+        return;
+    }
+    printc("Filesystem mounted successfully.\n", color);
 }
 
-static void cmd_ls(uint8_t color) {
+static void cmd_ls(char *args, uint8_t color) {
     struct fs_entries_t entries;
     int i;
-    print("\n");
     if (!fs) { kprintf(SEVERITY_WARNING, "Not mounted\n"); return; }
     entries = fs->get_entries((void*)fs);
     for (i = 0; i < (int)entries.count; i++) {
@@ -277,16 +321,18 @@ static void cmd_ls(uint8_t color) {
     }
 }
 
-static void cmd_cat(uint8_t color) {
+static void cmd_cat(char *args, uint8_t color) {
     struct fs_entries_t entries;
     unsigned char fname[32];
     int i, found;
 
     if (!fs) { kprintf(SEVERITY_WARNING, "Not mounted\n"); return; }
 
-    printc("\nEnter filename: ", color);
-    input(fname, 32, color);
-    printc("\n", color);
+    get_arg(args, 0, (char*)fname, 32);
+    if (fname[0] == '\0') {
+        printc("Usage: cat <filename>\n", VGA_COLOR_RED);
+        return;
+    }
 
     entries = fs->get_entries((void*)fs);
     found = -1;
@@ -322,26 +368,29 @@ static void cmd_cat(uint8_t color) {
     printc("\n", color);
 }
 
-static void cmd_fsinfo(uint8_t color) {
+static void cmd_fsinfo(char *args, uint8_t color) {
+    (void)args;
     if (!fs) {
-        printc("\nFilesystem not mounted. Run 'fsmount' first.\n", VGA_COLOR_RED);
+        printc("Filesystem not mounted. Run 'fsmount' first.\n", VGA_COLOR_RED);
         return;
     }
     printc("\n", color);
     fat32_print_info(fs, color);
 }
 
-static void cmd_touch(uint8_t color) {
+static void cmd_touch(char *args, uint8_t color) {
     unsigned char fname[32];
     unsigned char content[256];
 
     if (!fs) { kprintf(SEVERITY_WARNING, "Not mounted\n"); return; }
 
-    printc("\nFilename: ", color);
-    input(fname, 32, color);
-    printc("\nContent (single line): ", color);
-    input(content, 255, color);
-    printc("\n", color);
+    get_arg(args, 0, (char*)fname, 32);
+    get_arg(args, 1, (char*)content, 255);
+
+    if (fname[0] == '\0') {
+        printc("Usage: touch <filename> <content>\n", VGA_COLOR_RED);
+        return;
+    }
 
     int result = fat32_create_file(fs, (char*)fname,
                                    (const uint8_t*)content, strlen((char*)content));
@@ -354,15 +403,20 @@ static void cmd_touch(uint8_t color) {
     }
 }
 
-static void cmd_rm(uint8_t color) {
+static void cmd_rm(char *args, uint8_t color) {
     unsigned char fname[32];
     if (!fs) { kprintf(SEVERITY_WARNING, "Not mounted\n"); return; }
 
-    printc("\nFilename to delete: ", color);
-    input(fname, 32, color);
-    printc("\n", color);
+    get_arg(args, 0, (char*)fname, 32);
+    if (fname[0] == '\0') {
+        printc("Usage: rm <filename>\n", VGA_COLOR_RED);
+        return;
+    }
 
-    printc("Are you sure? (y/n): ", VGA_COLOR_LIGHT_RED);
+    printc("Delete ", color);
+    printc((char*)fname, color);
+    printc("? (y/n): ", VGA_COLOR_LIGHT_RED);
+    
     unsigned char confirm[4];
     input(confirm, 4, color);
     printc("\n", color);
@@ -381,15 +435,17 @@ static void cmd_rm(uint8_t color) {
     }
 }
 
-static void cmd_cp(uint8_t color) {
+static void cmd_cp(char *args, uint8_t color) {
     unsigned char src[32], dst[32];
     if (!fs) { kprintf(SEVERITY_WARNING, "Not mounted\n"); return; }
 
-    printc("\nSource filename: ", color);
-    input(src, 32, color);
-    printc("\nDestination filename: ", color);
-    input(dst, 32, color);
-    printc("\n", color);
+    get_arg(args, 0, (char*)src, 32);
+    get_arg(args, 1, (char*)dst, 32);
+
+    if (src[0] == '\0' || dst[0] == '\0') {
+        printc("Usage: cp <src> <dst>\n", VGA_COLOR_RED);
+        return;
+    }
 
     struct fs_entries_t entries = fs->get_entries((void*)fs);
     int found = -1;
@@ -434,15 +490,17 @@ static void cmd_cp(uint8_t color) {
     }
 }
 
-static void cmd_mv(uint8_t color) {
+static void cmd_mv(char *args, uint8_t color) {
     unsigned char src[32], dst[32];
     if (!fs) { kprintf(SEVERITY_WARNING, "Not mounted\n"); return; }
 
-    printc("\nSource filename: ", color);
-    input(src, 32, color);
-    printc("\nDestination filename: ", color);
-    input(dst, 32, color);
-    printc("\n", color);
+    get_arg(args, 0, (char*)src, 32);
+    get_arg(args, 1, (char*)dst, 32);
+
+    if (src[0] == '\0' || dst[0] == '\0') {
+        printc("Usage: mv <src> <dst>\n", VGA_COLOR_RED);
+        return;
+    }
 
     struct fs_entries_t entries = fs->get_entries((void*)fs);
     int found = -1;
@@ -485,13 +543,15 @@ static void cmd_mv(uint8_t color) {
     printc("\n", color);
 }
 
-static void cmd_mkdir(uint8_t color) {
+static void cmd_mkdir(char *args, uint8_t color) {
     unsigned char dname[32];
     if (!fs) { kprintf(SEVERITY_WARNING, "Not mounted\n"); return; }
 
-    printc("\nDirectory name: ", color);
-    input(dname, 32, color);
-    printc("\n", color);
+    get_arg(args, 0, (char*)dname, 32);
+    if (dname[0] == '\0') {
+        printc("Usage: mkdir <directory_name>\n", VGA_COLOR_RED);
+        return;
+    }
 
     int result = fat32_mkdir(fs, (char*)dname);
     if (result == 0) {
@@ -503,25 +563,23 @@ static void cmd_mkdir(uint8_t color) {
     }
 }
 
-static void cmd_echo(uint8_t color) {
-    unsigned char msg[256];
-    printc("\n", color);
-    input(msg, 256, color);
-    printc("\n", color);
-    printc((char*)msg, color);
+static void cmd_echo(char *args, uint8_t color) {
+    printc(args, color);
     printc("\n", color);
 }
 
-static void cmd_write(uint8_t color) {
+static void cmd_write(char *args, uint8_t color) {
     unsigned char fname[32];
     unsigned char content[256];
     if (!fs) { kprintf(SEVERITY_WARNING, "Not mounted\n"); return; }
 
-    printc("\nFilename: ", color);
-    input(fname, 32, color);
-    printc("\nText to append: ", color);
-    input(content, 255, color);
-    printc("\n", color);
+    get_arg(args, 0, (char*)fname, 32);
+    get_arg(args, 1, (char*)content, 255);
+
+    if (fname[0] == '\0') {
+        printc("Usage: write <filename> <text>\n", VGA_COLOR_RED);
+        return;
+    }
 
     int result = fat32_append_file(fs, (char*)fname,
                                    (const uint8_t*)content, strlen((char*)content));
@@ -534,15 +592,16 @@ static void cmd_write(uint8_t color) {
     }
 }
 
-static void cmd_uptime(uint8_t color) {
-    uint32_t ticks = lapic_timer_tick;
+static void cmd_uptime(char *args, uint8_t color) {
+    (void)args;
+    uint32_t ticks = get_tick();
     uint32_t seconds = ticks / 50;
     uint32_t minutes = seconds / 60;
     uint32_t hours   = minutes / 60;
     seconds %= 60;
     minutes %= 60;
 
-    printc("\nUptime: ", color);
+    printc("Uptime: ", color);
     print_int(hours);
     printc("h ", color);
     print_int(minutes);
@@ -553,24 +612,27 @@ static void cmd_uptime(uint8_t color) {
     printc(" ticks)\n", color);
 }
 
-static void cmd_meminfo(uint8_t color) {
-    printc("\nMemory:\n", color);
+static void cmd_meminfo(char *args, uint8_t color) {
+    (void)args;
+    printc("Memory:\n", color);
     printc("  Heap base : 0x200000\n", color);
     printc("  Heap end  : 0x500000 (3 MB window, hardcoded)\n", color);
-    printf( "  Memory size (This isn't exact, This will be less for around 42%%)  : %dMb\n", memsize_grub / 1048576);
     printc("  TODO: wire up Multiboot2 memory map (Phase 1)\n", color);
-    printc("\n", color);
 }
 
 static GkState gk_state;
 
-static void cmd_gk(uint8_t color) {
-    printc("\nGeckoOS scripting language is running!\n", color);
+static void cmd_gk(char *args, uint8_t color) {
+    if (*args == '\0') {
+        printc("GeckoOS scripting language is running!\n", color);
+    } else {
+        cmd_gk_run_file(args, color);
+    }
 }
 
 static void cmd_gk_run_file(const char* filename, uint8_t color) {
     if (!fs) {
-        printc("\nFilesystem not mounted. Run 'fsmount' first.\n", VGA_COLOR_RED);
+        printc("Filesystem not mounted. Run 'fsmount' first.\n", VGA_COLOR_RED);
         return;
     }
 
@@ -592,7 +654,7 @@ static void cmd_gk_run_file(const char* filename, uint8_t color) {
     }
 
     if (found < 0) {
-        printc("\nFile not found: ", VGA_COLOR_RED);
+        printc("File not found: ", VGA_COLOR_RED);
         printc((char*)filename, VGA_COLOR_RED);
         printc("\n", color);
         return;
@@ -611,14 +673,12 @@ static void cmd_gk_run_file(const char* filename, uint8_t color) {
     }
     src_buf[total] = '\0';
 
-    printc("\n", color);
     gk_init(&gk_state);
     gk_run(&gk_state, src_buf);
 }
 
-static void cmd_lspci(uint8_t color) {
-    printf("\n");
-    (void)color;
+static void cmd_lspci(char *args, uint8_t color) {
+    (void)args;
     pci_lspci();
 }
 
@@ -654,21 +714,15 @@ static void process_rx_packets(void) {
     }
 }
 
-static void cmd_ping(uint8_t color) {
-    (void)color;
-
-    printc("\nUsage: ping <ip> (e.g. ping 10.0.2.2)\n", VGA_COLOR_LIGHT_GREY);
-    printc("Our IP: ", VGA_COLOR_LIGHT_CYAN);
-    print_ip(net_ip);
-    printc("\n", VGA_COLOR_LIGHT_GREY);
-
+static void cmd_ping(char *args, uint8_t color) {
     unsigned char ip_str[32];
-    printc("\nEnter IP to ping: ", color);
-    input(ip_str, 32, color);
-    printc("\n", color);
+    get_arg(args, 0, (char*)ip_str, 32);
 
-    if (strlen((char *)ip_str) == 0) {
-        printc("No IP specified.\n", VGA_COLOR_RED);
+    if (ip_str[0] == '\0') {
+        printc("Usage: ping <ip> (e.g. ping 10.0.2.2)\n", VGA_COLOR_LIGHT_GREY);
+        printc("Our IP: ", VGA_COLOR_LIGHT_CYAN);
+        print_ip(net_ip);
+        printc("\n", VGA_COLOR_LIGHT_GREY);
         return;
     }
 
@@ -679,11 +733,11 @@ static void cmd_ping(uint8_t color) {
 
     arp_request(target_ip);
 
-    int tick_start = lapic_timer_tick;
+    int tick_start = get_tick();
     int resolved = 0;
     uint8_t mac[6];
 
-    while (lapic_timer_tick - tick_start < 100) {
+    while (get_tick() - tick_start < 100) {
         process_rx_packets();
         if (arp_resolve(target_ip, mac)) {
             resolved = 1;
@@ -707,10 +761,10 @@ static void cmd_ping(uint8_t color) {
         icmp_send_echo_request(target_ip, ping_id, i);
         sent++;
 
-        int wait_start = lapic_timer_tick;
+        int wait_start = get_tick();
         int got_reply = 0;
 
-        while (lapic_timer_tick - wait_start < 100) {
+        while (get_tick() - wait_start < 100) {
             process_rx_packets();
             if (icmp_got_reply()) {
                 got_reply = 1;
@@ -737,7 +791,7 @@ static void cmd_ping(uint8_t color) {
             printc("Request timed out\n", VGA_COLOR_RED);
         }
 
-        // timer_wait(50);
+        timer_wait(50);
     }
 
     serial_puts("\n--- Ping Statistics ---\n");
@@ -758,30 +812,41 @@ static void cmd_ping(uint8_t color) {
     print_int(sent - received);
     printc("\n", color);
 }
-
-static void cmd_runelf(uint8_t color) {
+static void cmd_dumpelf(char *args, uint8_t color) {
     unsigned char filename[32];
+    get_arg(args, 0, (char*)filename, 32);
 
-    printf("\nEnter the filename: ");
-    input(filename, 32, color);
-
-    Buffer_t file = readfile(filename);
-    printf("\n");
-    if (!file.bytes) {
-        printf("That file dosen't exists!\n");
+    if (filename[0] == '\0') {
+        printf("Usage: dumpelf <filename>\n");
         return;
     }
-    elf_load_stage1((Elf64_Ehdr*)file.bytes);
-    elf_load_stage2((Elf64_Ehdr*)file.bytes);
 
+    Buffer_t file = readfile(filename);
+    dumpelf(file.bytes, file.size);
     kfree(file.bytes);
 }
 
-static void cmd_processes(uint8_t color) {
-    printf("\nProcesses count: %d\n", nr_processes);
+static void cmd_runelf(char *args, uint8_t color) {
+    unsigned char filename[32];
+    get_arg(args, 0, (char*)filename, 32);
+
+    if (filename[0] == '\0') {
+        printf("Usage: runelf <filename>\n");
+        return;
+    }
+
+    Buffer_t file = readfile(filename);
+    runelf(file);
+    kfree(file.bytes);
 }
 
-static void cmd_showrsdt(uint8_t color) {
+static void cmd_processes(char *args, uint8_t color) {
+    (void)args;
+    printf("Processes count: %d\n", nr_processes);
+}
+
+static void cmd_showrsdt(char *args, uint8_t color) {
+    (void)args;
     #ifndef DEBUG
         printf("\nThis commands only shows output if this OS was compiled in DEBUG mode\n");
     #else
@@ -807,24 +872,33 @@ static const char* starts_with(const unsigned char* str, const char* prefix) {
 }
 
 void run_command(unsigned char *cmd_input, uint8_t color) {
-    const char* after_gk = starts_with(cmd_input, "gk ");
-    if (after_gk) {
-        while (*after_gk == ' ') after_gk++;
-        if (*after_gk != '\0') {
-            cmd_gk_run_file(after_gk, color);
-            return;
-        }
+    char *args = (char *)cmd_input;
+    char *cmd_name_ptr = (char *)cmd_input;
+    
+    int len = 0;
+    while (cmd_name_ptr[len] != ' ' && cmd_name_ptr[len] != '\0') {
+        len++;
+    }
+    
+    char name_buf[32];
+    if (len >= 32) len = 31;
+    for (int i = 0; i < len; i++) name_buf[i] = cmd_name_ptr[i];
+    name_buf[len] = '\0';
+    
+    if (len < 32 && cmd_name_ptr[len] == ' ') {
+        args = cmd_name_ptr + len + 1;
+        while (*args == ' ') args++;
+    } else {
+        args = "";
     }
 
     for (int i = 0; i < num_commands; i++) {
-        if (streq(cmd_input, commands[i].name)) {
-            commands[i].func(color);
+        if (streq((unsigned char*)name_buf, commands[i].name)) {
+            commands[i].func(args, color);
             return;
         }
     }
 
     if (strlen((char*)cmd_input) != 0)
-        printc("\nUnknown command. Type 'help' for available commands\n", color);
-    else
-        printc("\n", color);
+        printc("Unknown command. Type 'help' for available commands\n", color);
 }

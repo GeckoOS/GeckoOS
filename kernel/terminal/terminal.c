@@ -350,6 +350,8 @@ void input(unsigned char *buff, size_t buffer_size, uint8_t color)
         }
     }
 
+    putchar('\n', color);
+
     buff[buff_count] = '\0';
     history_push(buff);
 }
