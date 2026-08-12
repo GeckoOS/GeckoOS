@@ -43,11 +43,16 @@ void ip_send(uint32_t dst_ip, uint8_t protocol, const void *payload, uint16_t pa
     memcpy(ip->payload, payload, payload_len);
     ip->checksum = ip_checksum(ip, sizeof(ip_header_t));
 
+    // ARP resolves the Ethernet next hop, not necessarily the IP destination
+    uint32_t next_hop = ((dst_ip & net_subnet) == (net_ip & net_subnet))
+        ? dst_ip
+        : net_gateway;
+
     uint8_t dst_mac[6];
-    if (arp_resolve(dst_ip, dst_mac)) {
+    if (arp_resolve(next_hop, dst_mac)) {
         net_send_frame(dst_mac, ETHER_TYPE_IPV4, tx_buf, sizeof(ip_header_t) + payload_len);
     } else {
-        arp_request(dst_ip);
+        arp_request(next_hop);
     }
 }
 

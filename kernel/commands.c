@@ -731,7 +731,12 @@ static void cmd_ping(char *args, uint8_t color) {
     print_ip(target_ip);
     printc(" ...\n", color);
 
-    arp_request(target_ip);
+    // Off-subnet packets are sent to the default gateway at layer 2
+    uint32_t next_hop = ((target_ip & net_subnet) == (net_ip & net_subnet))
+        ? target_ip
+        : net_gateway;
+
+    arp_request(next_hop);
 
     int tick_start = get_tick();
     int resolved = 0;
@@ -739,7 +744,7 @@ static void cmd_ping(char *args, uint8_t color) {
 
     while (get_tick() - tick_start < 100) {
         process_rx_packets();
-        if (arp_resolve(target_ip, mac)) {
+        if (arp_resolve(next_hop, mac)) {
             resolved = 1;
             break;
         }
