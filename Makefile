@@ -65,6 +65,12 @@ run-grub: gecko.iso
 	  -netdev user,id=net0 \
 	  -device e1000,netdev=net0
 
+run-grub-drive: gecko.iso fat32.img
+	qemu-system-x86_64 -cdrom gecko.iso -boot order=d \
+	  -netdev user,id=net0 \
+	  -device e1000,netdev=net0 \
+	  -drive file=fat32.img,format=raw,if=ide,index=1
+
 fat32.img:
 	dd if=/dev/zero of=fat32.img bs=1M count=64
 	mkfs.fat -F 32 -n "GECKOOS" fat32.img

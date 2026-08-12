@@ -70,7 +70,7 @@ Once booted, run `fsmount` in the GeckoOS shell to mount the FAT32 data disk, th
 
 **All three steps at once:**
 ```bash
-make fat32.img && make && qemu-system-i386 -cdrom gecko.iso -drive file=fat32.img,format=raw,if=ide,index=1 -boot order=d
+make fat32.img && make && qemu-system-x64_64 -cdrom gecko.iso -drive file=fat32.img,format=raw,if=ide,index=1 -boot order=d
 ```
 
 **Clean build artifacts:**
@@ -155,3 +155,4 @@ Add your name to the contributors list when you contribute!
 - Zorx555
 - mckaylap2304 (V2 Website creator)
 - codecrafter01001
+- SlothScript
