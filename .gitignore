@@ -10,3 +10,5 @@ grub-modules/i386-pc
 build/
 Assets/test_elf/test_elf
 server/files
+__pycache__/
+*.pyc
