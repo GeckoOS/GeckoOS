@@ -1,8 +1,18 @@
 # Makefile to make and run with QEMU. //ember2819
 CC      = clang
 AS      = nasm
-LD      = ld # *should* support all arch on any arch (x86 on arm, x86_64 on arm, etc)
-OBJCOPY = objcopy
+# For MacOS compatability, it must use ld.lld, not just ld.
+LD := $(shell command -v ld.lld 2>/dev/null || command -v ld 2>/dev/null)
+OBJCOPY := $(shell command -v llvm-objcopy 2>/dev/null || command -v objcopy 2>/dev/null) # Similar methodology for objcopy
+GRUB_MKRESCUE := $(shell command -v x86_64-elf-grub-mkrescue 2>/dev/null || command -v grub-mkrescue 2>/dev/null)
+
+ifeq ($(LD),)
+$(error ld.lld not found. Install LLVM/LLD and put ld.lld in PATH.)
+endif
+
+ifeq ($(OBJCOPY),)
+$(error llvm-objcopy/objcopy not found.)
+endif
 
 include_folder = include
 CC_FLAGS = -target x86_64-elf -march=x86-64 -m64 -MMD -MP \
@@ -47,13 +57,19 @@ grub-iso: kernel.elf grub-modules/i386-pc/modinfo.sh
 	@mkdir -p $(ISODIR)/boot/grub
 	cp kernel.elf         $(ISODIR)/boot/kernel.elf
 	cp boot/grub/grub.cfg $(ISODIR)/boot/grub/grub.cfg
-	grub-mkrescue --directory=grub-modules/i386-pc -o gecko.iso $(ISODIR) --locale-directory=/usr/share/locale
+	$(GRUB_MKRESCUE) --directory=grub-modules/i386-pc -o gecko.iso $(ISODIR) --locale-directory=/usr/share/locale
 	@echo "gecko.iso built. Boot with:  make run-grub"
 
 run-grub: gecko.iso
 	qemu-system-x86_64 -cdrom gecko.iso -boot order=d \
 	  -netdev user,id=net0 \
 	  -device e1000,netdev=net0
+
+run-grub-drive: gecko.iso fat32.img
+	qemu-system-x86_64 -cdrom gecko.iso -boot order=d \
+	  -netdev user,id=net0 \
+	  -device e1000,netdev=net0 \
+	  -drive file=fat32.img,format=raw,if=ide,index=1
 
 fat32.img:
 	dd if=/dev/zero of=fat32.img bs=1M count=64

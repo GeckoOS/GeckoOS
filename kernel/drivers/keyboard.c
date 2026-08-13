@@ -107,9 +107,6 @@ void keyboard_handler(registers_t* r)
     //listen to the key port
     uint8_t scancode = inb(KEYBOARD_DATA_PORT);
 
-    if (scancode & 0x80)
-        return; // ignore key release
-
     last_scancode = scancode;
     kb_ready = 1;
 }

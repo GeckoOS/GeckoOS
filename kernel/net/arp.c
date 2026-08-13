@@ -28,6 +28,9 @@ void arp_handle(uint8_t *data, uint16_t len) {
 
     if (op == ARP_OP_REQUEST && target_ip == net_ip) {
         arp_packet_t reply;
+        // Initialize all fields to zero first to avoid garbage
+        __builtin_memset(&reply, 0, sizeof(arp_packet_t));
+
         reply.hw_type    = __builtin_bswap16(ARP_HWTYPE_ETHER);
         reply.proto_type = __builtin_bswap16(ARP_PROTYPE_IPV4);
         reply.hw_size    = 6;
@@ -39,24 +42,30 @@ void arp_handle(uint8_t *data, uint16_t len) {
             reply.target_mac[i] = arp->sender_mac[i];
         }
         reply.sender_ip = __builtin_bswap32(net_ip);
-        reply.target_ip = __builtin_bswap32(arp->sender_ip);
+        reply.target_ip = arp->sender_ip;
 
         net_send_frame(arp->sender_mac, ETHER_TYPE_ARP, &reply, sizeof(arp_packet_t));
     }
 
+    // Update cache for both requests and replies (if it's a reply, it's the sender's info we want)
     if (op == ARP_OP_REQUEST || op == ARP_OP_REPLY) {
+        int found = 0;
         for (int i = 0; i < ARP_CACHE_SIZE; i++) {
             if (arp_cache[i].valid && arp_cache[i].ip == sender_ip) {
-                memcpy(arp_cache[i].mac, arp->sender_mac, 6);
-                return;
+                for(int j=0; j<6; j++) arp_cache[i].mac[j] = arp->sender_mac[j];
+                found = 1;
+                break;
             }
         }
-        for (int i = 0; i < ARP_CACHE_SIZE; i++) {
-            if (!arp_cache[i].valid) {
-                arp_cache[i].ip = sender_ip;
-                memcpy(arp_cache[i].mac, arp->sender_mac, 6);
-                arp_cache[i].valid = 1;
-                return;
+
+        if (!found) {
+            for (int i = 0; i < ARP_CACHE_SIZE; i++) {
+                if (!arp_cache[i].valid) {
+                    arp_cache[i].ip = sender_ip;
+                    for(int j=0; j<6; j++) arp_cache[i].mac[j] = arp->sender_mac[j];
+                    arp_cache[i].valid = 1;
+                    break;
+                }
             }
         }
     }
@@ -64,6 +73,8 @@ void arp_handle(uint8_t *data, uint16_t len) {
 
 void arp_request(uint32_t target_ip) {
     arp_packet_t req;
+    __builtin_memset(&req, 0, sizeof(arp_packet_t));
+
     req.hw_type    = __builtin_bswap16(ARP_HWTYPE_ETHER);
     req.proto_type = __builtin_bswap16(ARP_PROTYPE_IPV4);
     req.hw_size    = 6;
@@ -83,7 +94,7 @@ void arp_request(uint32_t target_ip) {
 int arp_resolve(uint32_t ip, uint8_t out_mac[6]) {
     for (int i = 0; i < ARP_CACHE_SIZE; i++) {
         if (arp_cache[i].valid && arp_cache[i].ip == ip) {
-            memcpy(out_mac, arp_cache[i].mac, 6);
+            for(int j=0; j<6; j++) out_mac[j] = arp_cache[i].mac[j];
             return 1;
         }
     }

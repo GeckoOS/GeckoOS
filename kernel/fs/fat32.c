@@ -568,44 +568,112 @@ int fat32_append_file(struct drive_fs_t *fs, char *name,
                        const uint8_t *content, size_t len)
 {
     if (!fs) return -1;
+    FAT32_Volume   *pvol  = (FAT32_Volume *)fs->userdata1;
+    struct kdrive_t *drive = fs->drive;
 
-    static uint8_t appbuf[4096];
-    int total = 0;
+    uint8_t tmp[ATA_SECTOR_SIZE];
+    DirSearchCtx ctx;
+    memset(&ctx, 0, sizeof(ctx));
+    ctx.find_match = 1;
+    encode_83_name(name, ctx.target8, ctx.target3);
 
-    struct fs_entries_t entries = fs->get_entries((void*)fs);
-    int found = -1;
-    for (int i = 0; i < (int)entries.count; i++) {
-        if (entries.entries[i].type != ENTRY_FILE) continue;
-        const char *a = entries.entries[i].file.name;
-        const char *b = name;
-        int match = 1;
-        while (*a && *b) {
-            char ca = (*a >= 'a' && *a <= 'z') ? *a - 32 : *a;
-            char cb = (*b >= 'a' && *b <= 'z') ? *b - 32 : *b;
-            if (ca != cb) { match = 0; break; }
-            a++; b++;
+    fat32_dir_iterate(drive, pvol, pvol->root_cluster, tmp, dir_search_cb, &ctx);
+    if (!ctx.found)
+        return fat32_create_file(fs, name, content, len);
+
+    size_t cluster_size = (size_t)pvol->bpb.bytes_per_sector *
+                          pvol->bpb.sectors_per_cluster;
+    uint32_t first_cluster = dir_entry_cluster(&ctx.result);
+    size_t   size          = ctx.result.file_size;
+    size_t   written       = 0;
+
+    uint32_t last_cluster = 0;
+    if (first_cluster != 0) {
+        last_cluster = first_cluster;
+        size_t n_clusters = (size + cluster_size - 1) / cluster_size;
+        for (size_t i = 1; i < n_clusters; i++) {
+            uint32_t next = fat32_next_cluster(drive, pvol, last_cluster);
+            if (next < 2 || next >= FAT32_CLUSTER_BAD) return -1;
+            last_cluster = next;
         }
-        if (match && *a == '\0' && *b == '\0') { found = i; break; }
     }
 
-    if (found >= 0) {
-        int j = 0;
-        while (total < 4000) {
-            uint8_t tmp[128];
-            int chunk = (int)entries.entries[found].file.read(
-                (void*)&entries.entries[found].file, (size_t)(j * 128), 128, tmp);
-            if (chunk <= 0) break;
-            for (int k = 0; k < chunk && total < 4000; k++)
-                appbuf[total++] = tmp[k];
-            j++;
+    // A freshly-created empty file has one pre-allocated, still-empty
+    // cluster (create_file with len == 0). Its first data must go at
+    // offset 0 of that cluster; otherwise the file would start with a
+    // wasted empty cluster of zero bytes.
+    if (size == 0 && first_cluster != 0 && len > 0) {
+        uint32_t lba = cluster_to_lba(pvol, first_cluster);
+        size_t   n   = len;
+        if (n > cluster_size) n = cluster_size;
+        size_t done = 0;
+        while (done < n) {
+            uint32_t sector     = (uint32_t)(done / drive->sector_size);
+            uint32_t sector_off = (uint32_t)(done % drive->sector_size);
+            uint32_t avail      = drive->sector_size - sector_off;
+            uint32_t chunk      = (uint32_t)(n - done);
+            if (chunk > avail) chunk = avail;
+            if (drive->read((void*)drive, lba + sector, 1, tmp) < 0) return -1;
+            memcpy(tmp + sector_off, content + done, chunk);
+            if (drive->write((void*)drive, lba + sector, 1, tmp) < 0) return -1;
+            done += chunk;
         }
-        fat32_delete_file(fs, name);
+        written += n;
     }
 
-    for (size_t i = 0; i < len && total < 4095; i++)
-        appbuf[total++] = content[i];
+    // Fill the tail of a partially used last cluster before allocating new ones
+    if (last_cluster != 0 && size % cluster_size != 0) {
+        size_t off = size % cluster_size;
+        size_t n = cluster_size - off;
+        if (n > len) n = len;
+        uint32_t lba = cluster_to_lba(pvol, last_cluster);
+        size_t done = 0;
+        while (done < n) {
+            uint32_t sector     = (uint32_t)((off + done) / drive->sector_size);
+            uint32_t sector_off = (uint32_t)((off + done) % drive->sector_size);
+            uint32_t avail      = drive->sector_size - sector_off;
+            uint32_t chunk      = (uint32_t)(n - done);
+            if (chunk > avail) chunk = avail;
+            if (drive->read((void*)drive, lba + sector, 1, tmp) < 0) return -1;
+            memcpy(tmp + sector_off, content + done, chunk);
+            if (drive->write((void*)drive, lba + sector, 1, tmp) < 0) return -1;
+            done += chunk;
+        }
+        written += n;
+    }
 
-    return fat32_create_file(fs, name, appbuf, (size_t)total);
+    // Allocate fresh clusters for the remainder and write them out
+    while (written < len) {
+        uint32_t cl = fat32_alloc_cluster(drive, pvol);
+        if (cl == 0) return -1;
+        if (last_cluster != 0) {
+            if (fat32_write_fat(drive, pvol, last_cluster, cl) < 0) return -1;
+        } else {
+            first_cluster = cl;
+        }
+        last_cluster = cl;
+
+        uint32_t lba = cluster_to_lba(pvol, cl);
+        size_t remaining = len - written;
+        for (uint32_t s = 0; s < pvol->bpb.sectors_per_cluster && remaining > 0; s++) {
+            memset(tmp, 0, drive->sector_size);
+            size_t chunk = remaining;
+            if (chunk > drive->sector_size) chunk = drive->sector_size;
+            memcpy(tmp, content + written, chunk);
+            if (drive->write((void*)drive, lba + s, 1, tmp) < 0) return -1;
+            written += chunk;
+            remaining -= chunk;
+        }
+    }
+
+    FAT32_DirEntry updated = ctx.result;
+    updated.first_cluster_high = (uint16_t)(first_cluster >> 16);
+    updated.first_cluster_low  = (uint16_t)(first_cluster & 0xFFFF);
+    updated.file_size          = (uint32_t)(size + len);
+    updated.write_date         = (uint16_t)((44 << 9) | (1 << 5) | 1);
+    updated.write_time         = 0;
+
+    return fat32_write_dir_entry(drive, ctx.found_lba, ctx.found_idx, &updated);
 }
 
 //ember2819

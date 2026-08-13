@@ -234,6 +234,11 @@ void scroll_down()
         viewport_top++;
 }
 
+int terminal_rows(void)
+{
+    return (int)fb_rows;
+}
+
 void terminal_clear(uint8_t color)
 {
     uint32_t bg = vga_bg_to_rgb(color);
@@ -349,6 +354,8 @@ void input(unsigned char *buff, size_t buffer_size, uint8_t color)
             buff_count++;
         }
     }
+
+    putchar('\n', color);
 
     buff[buff_count] = '\0';
     history_push(buff);
