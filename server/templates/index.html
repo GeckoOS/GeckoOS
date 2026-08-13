@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>GeckoOS File Drop</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 760px; margin: 2rem auto; padding: 0 1rem; }
+    h1, h2 { margin: 0 0 0.5rem; }
+    h2 { font-size: 0.9rem; }
+    hr { margin: 1.5rem 0; border: none; border-top: 1px solid #999; }
+    section { margin-bottom: 1.5rem; }
+    .flash { border: 1px solid #000; padding: 0.5rem 0.75rem; margin-bottom: 1rem; }
+    .drop { border: 1px solid #999; padding: 0.75rem; display: flex; gap: 0.75rem; align-items: center; }
+    input[type=file] { font: inherit; }
+    input[type=file]::file-selector-button {
+      font: inherit;
+      background: #fff;
+      border: 1px solid #999;
+      padding: 0.35rem 0.75rem;
+      margin-right: 0.75rem;
+      cursor: pointer;
+    }
+    input[type=file]::file-selector-button:hover {
+      border-color: #3f8f4f;
+      color: #3f8f4f;
+    }
+    .drop button {
+      font: inherit;
+      background: #fff;
+      border: 1px solid #3f8f4f;
+      color: #3f8f4f;
+      padding: 0.4rem 1rem;
+      cursor: pointer;
+    }
+    .drop button:hover { background: #3f8f4f; color: #fff; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #999; padding: 0.4rem 0.5rem; text-align: left; }
+    td.size { text-align: right; font-family: monospace; }
+    .empty { border: 1px dashed #999; padding: 0.75rem; }
+
+    .widget {
+      font-family: monospace;
+      font-size: 0.8rem;
+      border: 1px solid #999;
+      border-left: 3px solid #3f8f4f;
+      padding: 0.6rem 0.75rem;
+    }
+    #vmLabel { font-weight: bold; }
+    #vmLabel.connected { color: #3f8f4f; }
+    #vmLabel.offline { color: #b3423e; }
+    .progress { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; }
+    .progress-track { flex: 1; height: 6px; background: #eee; border: 1px solid #999; }
+    .progress-fill { height: 100%; width: 0%; background: #3f8f4f; transition: width 0.15s linear; }
+    .progress-fill.error { background: #b3423e; }
+
+    .ttransfer { margin-bottom: 1rem; }
+    .trow { display: flex; justify-content: space-between; gap: 0.5rem; font-size: 0.9rem; }
+    .tname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tstate.active { color: #3f8f4f; font-weight: bold; }
+    .tstate.done { color: #666; }
+    .tstate.stalled { color: #b3423e; }
+    .tbar { height: 8px; background: #eee; border: 1px solid #999; margin: 0.3rem 0; padding: 1px; }
+    .tfill { height: 100%; width: 0%; background: #3f8f4f; transition: width 0.2s linear; }
+    .tsmall { color: #666; font-size: 0.8rem; font-family: monospace; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>File Drop</h1>
+
+    {% with msgs = get_flashed_messages() %}
+      {% if msgs %}
+        <div class="flash">
+          {% for m in msgs %}{{ m }}<br>{% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <section>
+      <h2>Upload</h2>
+      <form class="drop" id="uploadForm" method="post" action="/upload" enctype="multipart/form-data">
+        <input type="file" name="file" required>
+        <button type="submit">Upload file</button>
+      </form>
+    </section>
+
+    <hr>
+
+    <section>
+      <h2>Stored files {% if files %}({{ files|length }}){% endif %}</h2>
+      {% if files %}
+        <table>
+          <thead>
+            <tr><th>Name</th><th>Size</th></tr>
+          </thead>
+          <tbody>
+            {% for name, size in files %}
+              <tr>
+                <td><a href="/files/{{ name }}">{{ name }}</a></td>
+                <td class="size">{{ size }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p class="empty">None</p>
+      {% endif %}
+    </section>
+
+    <hr>
+
+    <section>
+      <h2>Client</h2>
+      <div class="widget">
+        <div>
+          <span id="vmLabel">CHECKING</span>
+        </div>
+        <div class="progress" id="uploadProgress" hidden>
+          <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+          <span id="progressLabel">0%</span>
+        </div>
+      </div>
+    </section>
+
+    <hr>
+
+    <section>
+      <h2>Transfers to VM</h2>
+      <div id="transfers">
+        <p class="empty">No active transfers</p>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const POLL_INTERVAL_MS = 3000;
+
+    const vmLabel = document.getElementById('vmLabel');
+    const uploadProgress = document.getElementById('uploadProgress');
+    const progressFill = document.getElementById('progressFill');
+    const progressLabel = document.getElementById('progressLabel');
+    const uploadForm = document.getElementById('uploadForm');
+    const transfersEl = document.getElementById('transfers');
+
+    const TRANSFER_POLL_MS = 500;
+
+    function escapeHtml(s) {
+      return s.replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+      });
+    }
+
+    function fmtBytes(n) {
+      const units = ['B', 'KiB', 'MiB', 'GiB'];
+      let i = 0;
+      while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
+      return (i === 0 ? n.toFixed(0) : n.toFixed(1)) + ' ' + units[i];
+    }
+
+    function transferState(f) {
+      if (f.served >= f.size) return 'done';
+      if (f.age < 5) return 'active';
+      return 'stalled';
+    }
+
+    function renderTransfers(files) {
+      if (!files.length) {
+        transfersEl.innerHTML = '<p class="empty">No active transfers</p>';
+        return;
+      }
+      let html = '';
+      for (const f of files) {
+        const pct = f.size ? Math.min(100, Math.round((f.served / f.size) * 100)) : 0;
+        const state = transferState(f);
+        html += '<div class="ttransfer">' +
+          '<div class="trow">' +
+            '<span class="tname">' + escapeHtml(f.name) + '</span>' +
+            '<span class="tstate ' + state + '">' + state.toUpperCase() + '</span>' +
+          '</div>' +
+          '<div class="tbar"><div class="tfill" style="width:' + pct + '%"></div></div>' +
+          '<div class="tsmall">' + fmtBytes(f.served) + ' / ' + fmtBytes(f.size) +
+            ' (' + pct + '%)</div>' +
+        '</div>';
+      }
+      transfersEl.innerHTML = html;
+    }
+
+    async function pollTransfers() {
+      try {
+        const res = await fetch('/progress');
+        if (!res.ok) return;
+        const data = await res.json();
+        renderTransfers(data.files || []);
+      } catch (err) {
+        /* keep last render */
+      }
+    }
+
+    async function checkVmStatus() {
+      try {
+        const res = await fetch('/status');
+        if (!res.ok) throw new Error('bad response');
+        const data = await res.json();
+        setVmStatus(!!data.connected);
+      } catch (err) {
+        setVmStatus(false);
+      }
+    }
+
+    function setVmStatus(connected) {
+      vmLabel.textContent = connected ? 'ONLINE  10.0.2.2' : 'OFFLINE';
+      vmLabel.className = connected ? 'connected' : 'offline';
+    }
+
+    function setProgress(pct, isError) {
+      uploadProgress.hidden = false;
+      progressFill.style.width = pct + '%';
+      progressFill.className = 'progress-fill' + (isError ? ' error' : '');
+      progressLabel.textContent = isError ? 'Failed' : pct + '%';
+    }
+
+    uploadForm.addEventListener('submit', function (evt) {
+      evt.preventDefault();
+      const formData = new FormData(uploadForm);
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', uploadForm.action);
+      xhr.upload.addEventListener('progress', function (progressEvt) {
+        if (progressEvt.lengthComputable) {
+          const pct = Math.round((progressEvt.loaded / progressEvt.total) * 100);
+          setProgress(pct, false);
+        }
+      });
+      xhr.onload = function () {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          window.location.reload();
+        } else {
+          setProgress(100, true);
+        }
+      };
+      xhr.onerror = function () { setProgress(100, true); };
+      xhr.send(formData);
+    });
+
+    checkVmStatus();
+    setInterval(checkVmStatus, POLL_INTERVAL_MS);
+    pollTransfers();
+    setInterval(pollTransfers, TRANSFER_POLL_MS);
+  </script>
+</body>
+</html>

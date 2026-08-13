@@ -8,4 +8,5 @@
 .vscode
 grub-modules/i386-pc
 build/
-Elf
+Assets/test_elf/test_elf
+server/files

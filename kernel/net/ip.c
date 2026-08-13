@@ -3,6 +3,12 @@
 #include <net/arp.h>
 #include <net/ethernet.h>
 #include <net/icmp.h>
+
+#include <net/udp.h>
+
+#include <drivers/e1000.h>
+#include <drivers/tables/timer.h>
+
 #include <mem.h>
 
 uint16_t ip_checksum(void *data, uint16_t len) {
@@ -49,10 +55,26 @@ void ip_send(uint32_t dst_ip, uint8_t protocol, const void *payload, uint16_t pa
         : net_gateway;
 
     uint8_t dst_mac[6];
-    if (arp_resolve(next_hop, dst_mac)) {
-        net_send_frame(dst_mac, ETHER_TYPE_IPV4, tx_buf, sizeof(ip_header_t) + payload_len);
-    } else {
+    for (int attempt = 0; attempt < 3; attempt++) {
+        if (arp_resolve(next_hop, dst_mac)) {
+            net_send_frame(dst_mac, ETHER_TYPE_IPV4, tx_buf, sizeof(ip_header_t) + payload_len);
+            return;
+        }
+
         arp_request(next_hop);
+
+        int start = get_tick();
+        while (get_tick() - start < 20) {
+            uint8_t rx_buf[2048];
+            uint16_t rx_len;
+            while (e1000_receive(rx_buf, &rx_len) == 0)
+                net_handle_packet(rx_buf, rx_len);
+            if (arp_resolve(next_hop, dst_mac)) {
+                net_send_frame(dst_mac, ETHER_TYPE_IPV4, tx_buf, sizeof(ip_header_t) + payload_len);
+                return;
+            }
+            timer_wait(1);
+        }
     }
 }
 
@@ -74,6 +96,9 @@ void ip_handle(uint8_t *data, uint16_t len) {
     switch (ip->protocol) {
     case IP_PROTO_ICMP:
         icmp_handle(src_ip, ip->payload, payload_len);
+        break;
+    case IP_PROTO_UDP:
+        udp_handle(src_ip, dst_ip, ip->payload, payload_len);
         break;
     }
 }
