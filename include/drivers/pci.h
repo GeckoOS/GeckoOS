@@ -134,4 +134,6 @@ void    enumerate_pci();
 void pci_lspci();
 void pci_detect_nics();
 
+const char *nic_vendor_str(uint16_t vendor);
+
 #endif

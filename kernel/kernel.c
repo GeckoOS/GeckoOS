@@ -21,6 +21,7 @@
 #include <stdint.h>
 #include <terminal/terminal.h>
 #include <fs/fs.h>
+#include <drivers/usb.h>
 
 #define GECKO_VERSION "2.2"
 
@@ -35,6 +36,8 @@ void kmain();
 #endif
 
 // uint64_t global_table;
+
+extern struct pci_bus pci_root_bus;
 
 __attribute__((section(".text.entry")))
 void _entry(uint64_t mbi) {
@@ -85,6 +88,7 @@ void _entry(uint64_t mbi) {
     // pci init
     enumerate_pci();
     pci_detect_nics();
+    pci_detect_sbc();
 
     // network init//
     lapic_start_cores();
@@ -92,28 +96,22 @@ void _entry(uint64_t mbi) {
     arp_init();
     drives_init();
 
-    terminal_clear(TERM_COLOR);
+    #ifndef DEBUG
+        terminal_clear(TERM_COLOR);
+    #endif
 
     printf("GeckoOS Version %s\n", GECKO_VERSION);
     #ifdef DEBUG
         printf("Booted via %s/Multiboot2.\n", bootloader_info->string);
+        // pci_lspci();
     #else
         printc("Booted via GRUB/Multiboot2.\n", TERM_COLOR);
     #endif
 
-    // shutdown();
-
-    // global_table = (uint64_t)vmm_get_pml4();
-    printf("\n");
     kmain();
 }
 
 void kmain() {
-    // for (;;);
-    // get_kdrive(0);
-    // STI();
-    // vmm_set_pml4((page_table_t*)global_table);
-
     for (int i = 1; i < 5; i++) {
         printf("Trying drive %d", i);
         if (fsmount(i)) break;

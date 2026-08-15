@@ -4,5 +4,5 @@
 #include "drivers/pci.h"
 
 void usb_init(){
-    enumerate_pci();
+    
 }

@@ -4,9 +4,6 @@
 #include "drivers/pci.h"
 #include <stdint.h>
 
-
-
-
 struct usb_controller {
     struct pci_common_hdr pci;
 
@@ -20,3 +17,4 @@ struct usb_controller {
     uint8_t irq;
 };
 void usb_init();
+void pci_detect_sbc();

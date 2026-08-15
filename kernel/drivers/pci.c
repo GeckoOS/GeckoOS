@@ -4,6 +4,7 @@
 #include <mem.h>
 #include <ports.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #define PCI_CFG_ADDR 0xCF8
 #define PCI_CFG_DATA 0xCFC
@@ -11,7 +12,8 @@
 #define PCI_DEV(devfn) ((devfn) >> 3)
 #define PCI_FN(devfn)  ((devfn) & 7)
 
-#define PCI_CLASS_NETWORK 0x02
+#define PCI_CLASS_NETWORK   0x02
+#define PCI_CLASS_SBC       0x0C
 
 struct pci_bus pci_root_bus;
 
@@ -52,7 +54,7 @@ void pci_writeb(uint32_t bus, uint32_t slot, uint32_t func, uint32_t off, uint8_
     pci_writel(bus, slot, func, align, (o & ~(0xff << shift)) | ((uint32_t)data << shift));
 }
 
-#define PCI_CLASSES_NUM 9
+#define PCI_CLASSES_NUM 120
 const char* pci_classes[PCI_CLASSES_NUM] = {
     "Unclassified",
     "Mass Storage Controller",
@@ -62,7 +64,18 @@ const char* pci_classes[PCI_CLASSES_NUM] = {
     "Memory Controller",
     "Bridge",
     "Simple Communication Controller",
-    "Base System Peripheral"
+    "Base System Peripheral",
+    "Input Device Controller",
+    "Docking Station",
+    "Processor",
+    "Serial Bus Controller",
+    "Wireless Controller",
+    "Intelligent Controller",
+    "Satellite Communication Controller",
+    "Encryption Controller",
+    "Signal Processing Controller",
+    "Processing Accelerator",
+    "Non-Essential Instrumentation"
 };
 
 static const char *class2str(uint8_t class) {
@@ -70,39 +83,41 @@ static const char *class2str(uint8_t class) {
     return pci_classes[class];
 }
 
-static const char *nic_vendor_str(uint16_t vendor) {
-    switch (vendor) {
-        case 0x8086: return "Intel";
-        case 0x10EC: return "Realtek";
-        case 0x14E4: return "Broadcom";
-        case 0x1022: return "AMD";
-        case 0x15AD: return "VMware";
-    } return NULL;
-}
+#ifdef DEBUG
+    const char *nic_vendor_str(uint16_t vendor) {
+        switch (vendor) {
+            case 0x8086: return "Intel";
+            case 0x10EC: return "Realtek";
+            case 0x14E4: return "Broadcom";
+            case 0x1022: return "AMD";
+            case 0x15AD: return "VMware";
+        } return NULL;
+    }
 
-static const char *nic_model_str(uint16_t vendor, uint16_t device) {
-    switch (vendor) {
-        case 0x8086:
-            switch (device) {
-                case 0x100E: return "82540EM";
-                case 0x100F: return "82545EM";
-                case 0x10D3: return "82574L";
-                case 0x1533: return "I210";
-                case 0x15B8: return "I219-V";
-            } break;
-        case 0x10EC:
-            switch (device) {
-                case 0x8139: return "RTL8139";
-                case 0x8168: return "RTL8111/8168B";
-                case 0x8125: return "RTL8125";
-            } break;
-        case 0x15AD:
-            switch (device) {
-                case 0x0720: return "VMXNET3";
-                case 0x0740: return "PCnet32";
-            } break;
-    } return NULL;
-}
+    static const char *nic_model_str(uint16_t vendor, uint16_t device) {
+        switch (vendor) {
+            case 0x8086:
+                switch (device) {
+                    case 0x100E: return "82540EM";
+                    case 0x100F: return "82545EM";
+                    case 0x10D3: return "82574L";
+                    case 0x1533: return "I210";
+                    case 0x15B8: return "I219-V";
+                } break;
+            case 0x10EC:
+                switch (device) {
+                    case 0x8139: return "RTL8139";
+                    case 0x8168: return "RTL8111/8168B";
+                    case 0x8125: return "RTL8125";
+                } break;
+            case 0x15AD:
+                switch (device) {
+                    case 0x0720: return "VMXNET3";
+                    case 0x0740: return "PCnet32";
+                } break;
+        } return NULL;
+    }
+#endif
 
 static void alloc_new_bus(struct pci_bus *parent, struct pci_dev *self) {
     struct pci_bus *child = kmalloc(sizeof(*child));
@@ -224,11 +239,21 @@ static void walk_buses(struct pci_bus *start, void (*cb)(struct pci_dev *)) {
 }
 
 static void lspci_cb(struct pci_dev *dev) {
-    printf("%02x:%02x.%d %s\n",
+    #ifdef DEBUG
+        printf("%02x:%02x.%d %s (Subclass: 0x%X, ProgIF: 0x%X)\n",
+           dev->bus->primary,
+           PCI_DEV(dev->devfn),
+           PCI_FN(dev->devfn),
+           class2str((uint8_t)dev->class),
+           pci_readb(dev->bus->primary, PCI_DEV(dev->devfn), PCI_FN(dev->devfn), offsetof(struct pci_hdr, common.subclass)),
+           pci_readb(dev->bus->primary, PCI_DEV(dev->devfn), PCI_FN(dev->devfn), offsetof(struct pci_hdr, common.prog_if)));
+    #else
+        printf("%02x:%02x.%d %s\n",
            dev->bus->primary,
            PCI_DEV(dev->devfn),
            PCI_FN(dev->devfn),
            class2str(dev->class & 0xff));
+    #endif
 }
 
 void pci_lspci() {
@@ -236,33 +261,55 @@ void pci_lspci() {
 }
 
 static void nic_detect_cb(struct pci_dev *dev) {
-    if ((dev->class & 0xff) != PCI_CLASS_NETWORK)
-        return;
+    if ((dev->class & 0xff) != PCI_CLASS_NETWORK) { return; }
 
     uint8_t bus  = dev->bus->primary;
     uint8_t slot = PCI_DEV(dev->devfn);
     uint8_t fn   = PCI_FN(dev->devfn);
+    #ifdef DEBUG
+        uint8_t subclass = pci_readb(bus, slot, fn,
+                                    offsetof(struct pci_hdr, common.subclass));
 
-    uint8_t subclass = pci_readb(bus, slot, fn,
-                                 offsetof(struct pci_hdr, common.subclass));
+        const char *vendor = nic_vendor_str(dev->vendor);
+        const char *model  = nic_model_str(dev->vendor, dev->device);
 
-    const char *vendor = nic_vendor_str(dev->vendor);
-    const char *model  = nic_model_str(dev->vendor, dev->device);
-
-    if (vendor && model)
-        printf("  [%02x:%02x.%d] %s %s\n", bus, slot, fn, vendor, model);
-    else if (vendor)
-        printf("  [%02x:%02x.%d] %s (device %04x, subclass %02x)\n",
-               bus, slot, fn, vendor, dev->device, subclass);
-    else
-        printf("  [%02x:%02x.%d] Unknown NIC (%04x:%04x, subclass %02x)\n",
-               bus, slot, fn, dev->vendor, dev->device, subclass);
+        if (vendor && model)
+            printf("  [%02x:%02x.%d] %s %s\n", bus, slot, fn, vendor, model);
+        else if (vendor)
+            printf("  [%02x:%02x.%d] %s (device %04x, subclass %02x)\n",
+                bus, slot, fn, vendor, dev->device, subclass);
+        else
+            printf("  [%02x:%02x.%d] Unknown NIC (%04x:%04x, subclass %02x)\n",
+                bus, slot, fn, dev->vendor, dev->device, subclass);
+    #endif
 
     if (dev->vendor == 0x8086 && dev->device == 0x100E)
         e1000_init(bus, slot, fn);
 }
 
+static void nic_detect_sbc_uhci(struct pci_dev *dev) {
+    uint8_t subclass = pci_readb(dev->bus->primary, PCI_DEV(dev->devfn), PCI_FN(dev->devfn),
+                                    offsetof(struct pci_hdr, common.subclass));
+    uint8_t ProgIF = pci_readb(dev->bus->primary, PCI_DEV(dev->devfn), PCI_FN(dev->devfn),
+                                    offsetof(struct pci_hdr, common.prog_if));
+    if (((dev->class & 0xff) != PCI_CLASS_SBC) || (subclass != 0x3) || (ProgIF != 0x0))
+        { return; }
+
+    #ifdef DEBUG
+        printf("  [%02x:%02x.%d] UHCI Controller\n", dev->bus->primary, PCI_DEV(dev->devfn), PCI_FN(dev->devfn));
+    #endif
+}
+
 void pci_detect_nics() {
-    printf("Network controllers:\n");
+    #ifdef DEBUG
+        printf("Network controllers:\n");
+    #endif
     walk_buses(&pci_root_bus, nic_detect_cb);
+}
+
+void pci_detect_sbc() {
+    #ifdef DEBUG
+        printf("Serial Bus Controllers (UHCI):\n");
+    #endif
+    walk_buses(&pci_root_bus, nic_detect_sbc_uhci);
 }
