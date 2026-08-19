@@ -19,7 +19,7 @@ struct acpi_rsdp_v2 {
     uint8_t reserved[3];
 } __attribute__((packed));
 
-typedef struct acpi_header  {
+typedef struct acpi_header {
     char signature[4];
     uint32_t length;
     uint8_t revision;
@@ -29,8 +29,7 @@ typedef struct acpi_header  {
     uint32_t oem_revision;
     uint32_t creator_id;
     uint32_t creator_revision;
-}__attribute__((packed))
- acpi_header_t ;
+}__attribute__((packed)) acpi_header_t;
 
 typedef struct acpi_madt {
     struct acpi_header header;

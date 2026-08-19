@@ -5,6 +5,7 @@
 #include <mem/physical_mem.h>
 #include <mem.h>
 #include "drivers/apic/ioapic.h"
+#include "drivers/vga.h"
 #include "terminal/printf.h"
 
 static volatile uint32_t *mmio_base = NULL;
@@ -113,12 +114,14 @@ __attribute__((interrupt)) static void e1000_irq_handler(registers_t *regs) {
 
 bool e1000_init(uint8_t bus, uint8_t slot, uint8_t func) {
     uint32_t bar0 = pci_readl(bus, slot, func, 0x10) & ~0xFu;
+
+    set_printf_color(VGA_COLOR_LIGHT_RED);
     if (!bar0) {
         printf("e1000: BAR0 is zero\n");
         return false;
     }
 
-    uint64_t virt = mmio_map((uint64_t)bar0, 0x20000);
+    uint64_t virt = mmio_map((uint64_t)bar0, 0x20000); // TODO: Get the bar size
     if (!virt) {
         printf("e1000: mmio_map failed\n");
         return false;
@@ -159,7 +162,8 @@ bool e1000_init(uint8_t bus, uint8_t slot, uint8_t func) {
     tx_buf   = tx_buf_phys;
 
     read_mac();
-    printf("e1000: MAC %02x:%02x:%02x:%02x:%02x:%02x\n",
+    set_printf_color(VGA_COLOR_LIGHT_GREY);
+    printf("  e1000: MAC %02x:%02x:%02x:%02x:%02x:%02x\n",
            mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
     /* write MAC into receive address register 0 */
@@ -185,7 +189,9 @@ bool e1000_init(uint8_t bus, uint8_t slot, uint8_t func) {
 
     uint8_t irq_line = pci_readb(bus, slot, func, 0x3C);
     irq_install_handler(irq_line, e1000_irq_handler,0x9);
-    printf("e1000: init done, IRQ %d\n", irq_line);
+    printf("  e1000: init done, IRQ %d\n", irq_line);
+
+    set_printf_color(VGA_COLOR_WHITE);
 
     return true;
 }

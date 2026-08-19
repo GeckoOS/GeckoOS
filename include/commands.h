@@ -53,8 +53,8 @@ static void cmd_ping(uint8_t color);
 // Processes
 static void cmd_processes(uint8_t color);
 
-// ACPI
-static void cmd_showrsdt(uint8_t color);
+// usb
+static void cmd_show_usb(uint8_t color);
 
 // Dispatcher
 static int streq(unsigned char *a, char *b);

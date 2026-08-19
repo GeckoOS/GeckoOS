@@ -200,7 +200,7 @@ void mouse_init()
     g_mouse_x_pos = 5;
     g_mouse_y_pos = 2;
 
-    printf("initializing mouse...\n");
+    printc("Initializing mouse...\n", VGA_COLOR_LIGHT_GREY);
 
     // enable mouse device
     mouse_wait(true);
@@ -216,11 +216,13 @@ void mouse_init()
     // printf("0x%x",ack);
     if (ack != MOUSE_ACKNOWLEDGE) {
         // crash or something
-        printf("Mouse not connected\n");
+        set_printf_color(VGA_COLOR_LIGHT_RED);
+            printf("Mouse not connected\n");
     } else {
         mouse_id = mouse_read();
-        printf("mouse id: 0x%x\n", mouse_id);
-    }
+        set_printf_color(VGA_COLOR_DARK_GREY);
+            printf("Mouse id: 0x%x\n", mouse_id);
+    } set_printf_color(VGA_COLOR_WHITE);
 
     // mouse id will change if it has more buttons after  sending some random
     //* packages for some reasone the sequence for scroll whell is 200 100 80
@@ -239,10 +241,12 @@ void mouse_init()
     if (ack == MOUSE_ACKNOWLEDGE) {
         mouse_wait(true);
         mouse_id = mouse_read();
-        printf("Mouse has accepted it has whell %d\n", mouse_id);
+        set_printf_color(VGA_COLOR_DARK_GREY);
+            printf("Mouse has accepted it has whell %d\n", mouse_id);
     } else {
-        printf("Mouse renounces his whell %d\n", mouse_id);
-    }
+        set_printf_color(VGA_COLOR_RED);
+            printf("Mouse renounces his whell %d\n", mouse_id);
+    } set_printf_color(VGA_COLOR_WHITE);
     //* activating buttons
     mouse_wait(true);
     set_mouse_rate(200);
@@ -255,10 +259,12 @@ void mouse_init()
     ack = mouse_write(MOUSE_CMD_MOUSE_ID);
     if (ack == MOUSE_ACKNOWLEDGE) {
         mouse_id = mouse_read();
-        printf("Mouse has accepted it has buttons %d\n", mouse_id);
+        set_printf_color(VGA_COLOR_DARK_GREY);
+            printf("Mouse has accepted it has buttons %d\n", mouse_id);
     } else {
-        printf("Mouse renounces his buttons %d\n", mouse_id);
-    }
+        set_printf_color(VGA_COLOR_LIGHT_RED);
+            printf("Mouse renounces his buttons %d\n", mouse_id);
+    } set_printf_color(VGA_COLOR_WHITE);
     status = mouse_read();
     // outb(MOUSE_DATA_PORT, MOUSE_CMD_RESOLUTION);
     // outb(MOUSE_DATA_PORT, 0);
@@ -279,7 +285,9 @@ void mouse_init()
     mouse_write(MOUSE_CMD_SET_DEFAULTS);
     status = mouse_read();
     if (status != MOUSE_ACKNOWLEDGE) {
-        printf("error: failed to set default mouse settings\n");
+        set_printf_color(VGA_COLOR_RED);
+            printf("error: failed to set default mouse settings\n");
+        set_printf_color(VGA_COLOR_WHITE);
         return;
     }
 
@@ -287,7 +295,9 @@ void mouse_init()
     mouse_write(MOUSE_CMD_ENABLE_PACKET_STREAMING);
     status = mouse_read();
     if (status != MOUSE_ACKNOWLEDGE) {
-        printf("error: failed to enable mouse packet streaming\n");
+        set_printf_color(VGA_COLOR_RED);
+            printf("error: failed to enable mouse packet streaming\n");
+        set_printf_color(VGA_COLOR_WHITE);
         return;
     }
 

@@ -1,20 +1,21 @@
 #pragma once
-//driver for usb devices
 
 #include "drivers/pci.h"
 #include <stdint.h>
 
-struct usb_controller {
-    struct pci_common_hdr pci;
+#define UHCICONTROLLER 1
 
-    volatile uint8_t* mmio_base;
-
-    uint8_t type; // UHCI/OHCI/EHCI/xHCI
-
-    void* operational_regs;
-    void* runtime_regs;
-
-    uint8_t irq;
+struct BasicUSBHeader {
+    struct PCIDevice device;
+    uint16_t ioport;
 };
-void usb_init();
-void pci_detect_sbc();
+
+struct USBDevice {
+    uint8_t type;
+    struct BasicUSBHeader* data;
+    void (*handler)(struct BasicUSBHeader* data);
+    int irq;
+};
+
+extern struct USBDevice USBDevices[16];
+extern uint8_t USBDevices_Count;

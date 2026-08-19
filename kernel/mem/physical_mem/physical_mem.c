@@ -2,6 +2,7 @@
  * Uses a flat bitmap over 4 KB blocks. Addresses are 64-bit.
  */
 #include "boot/multiboot2.h"
+#include "drivers/vga.h"
 #include <mem.h>
 #include <mem/physical_mem.h>
 #include <stddef.h>
@@ -125,6 +126,7 @@ void initialize_memory_manager_from_mbi(uint64_t mbi_addr)
             while ((uintptr_t)entry < (uintptr_t)tag + tag->size) {
                 if (entry->type == MULTIBOOT2_MEMORY_AVAILABLE) {
                     #ifdef DEBUG
+                        set_printf_color(VGA_COLOR_DARK_GREY);
                         printf("Available memory at 0x%p with %d bytes\n", entry->base_addr, entry->length);
                     #endif
                     free_region(entry->base_addr, entry->length);
@@ -135,6 +137,9 @@ void initialize_memory_manager_from_mbi(uint64_t mbi_addr)
         }
         tag = (multiboot2_tag_t *)((uintptr_t)tag + ((tag->size + 7) & ~7));
     }
+    #ifdef DEBUG
+        set_printf_color(VGA_COLOR_WHITE);
+    #endif
 
     // Reserve kernel regions
     reserve_region((uint64_t)_kernel_start,

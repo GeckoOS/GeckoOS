@@ -2,6 +2,7 @@
 #include "drivers/acpi.h"
 #include "drivers/apic/lapic.h"
 #include "drivers/mouse.h"
+#include "drivers/usb.h"
 #include "terminal/printf.h"
 #include <colors.h>
 #include <commands.h>
@@ -21,7 +22,6 @@
 #include <stdint.h>
 #include <terminal/terminal.h>
 #include <fs/fs.h>
-#include <drivers/usb.h>
 
 #define GECKO_VERSION "2.2"
 
@@ -45,7 +45,7 @@ void _entry(uint64_t mbi) {
     kalloc_init();
 
     if (!vmm_init()) {
-        printc("vmm_init failed -- halting\n", VGA_COLOR_RED);
+        printc("Vmm_init failed -- halting\n", VGA_COLOR_RED);
         for (;;)
             asm volatile("hlt");
     }
@@ -53,10 +53,11 @@ void _entry(uint64_t mbi) {
     outb(0x23, 0x01);
 
     //=====================Setting up interrupts===================//
-    printf("Cpu has apic: %d \n", cpu_has_apic());
     int ret = acpi_init();
     if (ret != 0) {
-        printf("intializzing apic failed: %d \n", ret);
+        set_printf_color(VGA_COLOR_RED);
+            printf("initializing apic failed: %d \n", ret);
+        set_printf_color(VGA_COLOR_WHITE);
     }
 
     if (cpu_has_apic()) {
@@ -70,7 +71,7 @@ void _entry(uint64_t mbi) {
         if (ret) {
             printf("Setting up LAPIC failed err %d", ret);
         }
-        printc("Preapering IOAPIC.. \n", VGA_COLOR_LIGHT_GREY);
+        printc("Preparing IOAPIC.. \n", VGA_COLOR_LIGHT_GREY);
         ioapic_init();
         asm volatile("sti"); // repoening interrupts
     } else {
@@ -87,8 +88,7 @@ void _entry(uint64_t mbi) {
     terminal_init();
     // pci init
     enumerate_pci();
-    pci_detect_nics();
-    pci_detect_sbc();
+    pci_detect_controllers();
 
     // network init//
     lapic_start_cores();

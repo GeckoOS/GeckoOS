@@ -1,3 +1,5 @@
+#include "drivers/uhci.h"
+#include "drivers/usb.h"
 #include "terminal/printf.h"
 #include <drivers/pci.h>
 #include <drivers/e1000.h>
@@ -260,56 +262,63 @@ void pci_lspci() {
     walk_buses(&pci_root_bus, lspci_cb);
 }
 
-static void nic_detect_cb(struct pci_dev *dev) {
-    if ((dev->class & 0xff) != PCI_CLASS_NETWORK) { return; }
-
+static void pci_filter(struct pci_dev *dev) {
     uint8_t bus  = dev->bus->primary;
     uint8_t slot = PCI_DEV(dev->devfn);
     uint8_t fn   = PCI_FN(dev->devfn);
-    #ifdef DEBUG
-        uint8_t subclass = pci_readb(bus, slot, fn,
-                                    offsetof(struct pci_hdr, common.subclass));
+    uint8_t subclass = pci_readb(bus, slot, fn,
+                            offsetof(struct pci_hdr, common.subclass));
 
-        const char *vendor = nic_vendor_str(dev->vendor);
-        const char *model  = nic_model_str(dev->vendor, dev->device);
+    switch (dev->class & 0xFF) {
+        case PCI_CLASS_NETWORK:
+            #ifdef DEBUG
+                const char *vendor = nic_vendor_str(dev->vendor);
+                const char *model  = nic_model_str(dev->vendor, dev->device);
 
-        if (vendor && model)
-            printf("  [%02x:%02x.%d] %s %s\n", bus, slot, fn, vendor, model);
-        else if (vendor)
-            printf("  [%02x:%02x.%d] %s (device %04x, subclass %02x)\n",
-                bus, slot, fn, vendor, dev->device, subclass);
-        else
-            printf("  [%02x:%02x.%d] Unknown NIC (%04x:%04x, subclass %02x)\n",
-                bus, slot, fn, dev->vendor, dev->device, subclass);
-    #endif
-
-    if (dev->vendor == 0x8086 && dev->device == 0x100E)
-        e1000_init(bus, slot, fn);
+                if (vendor && model)
+                    printf("  [%02x:%02x.%d] %s %s\n", bus, slot, fn, vendor, model);
+                else if (vendor)
+                    printf("  [%02x:%02x.%d] %s (device %04x, subclass %02x)\n",
+                        bus, slot, fn, vendor, dev->device, subclass);
+                else
+                    printf("  [%02x:%02x.%d] Unknown NIC (%04x:%04x, subclass %02x)\n",
+                        bus, slot, fn, dev->vendor, dev->device, subclass);
+            #endif
+            if (dev->vendor == 0x8086 && dev->device == 0x100E)
+                e1000_init(bus, slot, fn);
+            break;
+        case PCI_CLASS_SBC:
+            uint8_t ProgIF = pci_readb(dev->bus->primary, PCI_DEV(dev->devfn), PCI_FN(dev->devfn),
+                                            offsetof(struct pci_hdr, common.prog_if));
+            if ((subclass != 0x3) || (ProgIF != 0x0)) break;
+            #ifdef DEBUG
+                printf("  [%02x:%02x.%d] UHCI Controller\n",
+                    bus, slot, fn);
+            #endif
+            USBDevices[USBDevices_Count++] = uhci_init((struct PCIDevice){bus, slot, fn});
+            break;
+    }
 }
 
-static void nic_detect_sbc_uhci(struct pci_dev *dev) {
-    uint8_t subclass = pci_readb(dev->bus->primary, PCI_DEV(dev->devfn), PCI_FN(dev->devfn),
-                                    offsetof(struct pci_hdr, common.subclass));
-    uint8_t ProgIF = pci_readb(dev->bus->primary, PCI_DEV(dev->devfn), PCI_FN(dev->devfn),
-                                    offsetof(struct pci_hdr, common.prog_if));
-    if (((dev->class & 0xff) != PCI_CLASS_SBC) || (subclass != 0x3) || (ProgIF != 0x0))
-        { return; }
-
+void pci_detect_controllers() {
     #ifdef DEBUG
-        printf("  [%02x:%02x.%d] UHCI Controller\n", dev->bus->primary, PCI_DEV(dev->devfn), PCI_FN(dev->devfn));
+        printf("Available controllers:\n");
     #endif
+    walk_buses(&pci_root_bus, pci_filter);
 }
 
-void pci_detect_nics() {
-    #ifdef DEBUG
-        printf("Network controllers:\n");
-    #endif
-    walk_buses(&pci_root_bus, nic_detect_cb);
-}
 
-void pci_detect_sbc() {
-    #ifdef DEBUG
-        printf("Serial Bus Controllers (UHCI):\n");
-    #endif
-    walk_buses(&pci_root_bus, nic_detect_sbc_uhci);
+// Helpers
+uint32_t PciRead(struct PCIDevice device, uint8_t off) { // A wrapper for pci_readl
+    return pci_readl(device.bus, device.slot, device.func, off);
+}
+void PciWrite(struct PCIDevice device, uint8_t off, uint32_t data) { // A wrapper for pci_writel
+    pci_writel(device.bus, device.slot, device.func, off, data);
+}
+IOBar PCIGetIOBar(struct PCIDevice device, uint8_t which) { // Returns 0 if the wanted bar is a memory space bar
+    // If you want a bar that goes out of bounds, you will get straight shi
+    uint8_t reg = BAR0_OFF + (BAR_SIZE * which);
+
+    uint32_t bar = PciRead(device, reg);
+    return (bar & 0x1) ? bar : 0;
 }

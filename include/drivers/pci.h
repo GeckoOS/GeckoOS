@@ -43,7 +43,7 @@ struct pci_common_hdr {
     uint8_t  revid;
     uint8_t  prog_if;
     uint8_t  subclass;
-    uint8_t  clas;
+    uint8_t  clas; // clas :O
     uint8_t  clz;
     uint8_t  lt;
     uint8_t  htype;
@@ -120,6 +120,48 @@ struct pci_hdr {
     };
 } __attribute__((packed));
 
+struct pci_header0 {
+    struct pci_common_hdr common;
+    uint32_t bar0;
+    uint32_t bar1;
+    uint8_t primary_bus;
+    uint8_t secondary_bus;
+    uint8_t subordinate_bus;
+    uint8_t secondary_lt;
+    uint8_t I0base;
+    uint8_t IOlimit;
+    uint16_t secondary_status;
+    uint16_t memory_base;
+    uint16_t memory_limit;
+    uint16_t prefetchable_membase;
+    uint16_t prefetchable_memlimit;
+    uint32_t prefetchable_membase_upper;
+    uint32_t prefetchable_memlimit_upper;
+    uint16_t IObase_upper;
+    uint16_t IOlimit_upper;
+    uint8_t capability_pointer;
+    char reserved[3];
+    uint32_t expansion_ROM;
+    uint8_t interrupt_line;
+    uint8_t interrupt_pin;
+    uint16_t bridge_control;
+} __attribute__((packed));
+
+struct PCIBar {
+    union {
+        void* address;
+        uint16_t port;
+    } u;
+    uint64_t size;
+    uint32_t flags;
+};
+
+struct PCIDevice {
+    uint32_t bus;
+    uint32_t slot;
+    uint32_t func;
+};
+
 uint32_t pci_readl(uint32_t bus, uint32_t slot, uint32_t func, uint8_t off);
 uint16_t pci_readw(uint32_t bus, uint32_t slot, uint32_t func, uint8_t off);
 uint8_t  pci_readb(uint32_t bus, uint32_t slot, uint32_t func, uint8_t off);
@@ -132,7 +174,20 @@ void    enumerate_pcibus(struct pci_bus *bus);
 void    enumerate_pci();
 
 void pci_lspci();
-void pci_detect_nics();
+void pci_detect_controllers();
+
+#define BAR0_OFF 0x10
+#define BAR_SIZE 0x04
+
+typedef uint32_t IOBar;
+struct IOBarStruct {
+    IOBar bar_address;
+    uint8_t size;
+};
+
+uint32_t PciRead(struct PCIDevice device, uint8_t off);
+void PciWrite(struct PCIDevice device, uint8_t off, uint32_t data);
+IOBar PCIGetIOBar(struct PCIDevice device, uint8_t which);
 
 const char *nic_vendor_str(uint16_t vendor);
 

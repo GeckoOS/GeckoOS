@@ -1,8 +1,5 @@
-//going to hate my life here we go
+#include <drivers/usb.h>
+#include <stdint.h>
 
-#include "drivers/usb.h"
-#include "drivers/pci.h"
-
-void usb_init(){
-    
-}
+struct USBDevice USBDevices[16];
+uint8_t USBDevices_Count = 0;

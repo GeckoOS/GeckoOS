@@ -15,5 +15,6 @@
 
 int printf(const char *fmt, ...);
 int snprintf(char *buf, size_t siz, const char *fmt, ...);
+void set_printf_color(uint8_t color);
 
 #endif

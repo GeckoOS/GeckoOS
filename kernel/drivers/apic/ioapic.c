@@ -2,6 +2,7 @@
 #include "drivers/acpi.h"
 #include "drivers/apic/lapic.h"
 #include "drivers/keyboard.h"
+#include "drivers/vga.h"
 #include "mem/paging.h"
 #include "ports.h"
 #include "terminal/printf.h"
@@ -31,25 +32,31 @@ void ioapic_set_entry(volatile uint32_t *base, uint8_t index, uint64_t data)
     ioapic_write(IOAPIC_REDTBL_BASE + index * 2 + 1, (uint32_t)(data >> 32));
 }
 //Debug function for outputing the data of an entry
-void ioapic_dump_entry(int gsi) {
-    uint64_t entry = ioapic_read(IOAPIC_REDTBL_BASE + gsi * 2) |
-                     ((uint64_t)ioapic_read(IOAPIC_REDTBL_BASE + gsi * 2 + 1) << 32);
-    printf("GSI %d: 0x%016lx | vector=%u | mask=%u | trigger=%u | polarity=%u | dest=%u\n",
-           gsi, entry,
-           (uint32_t)(entry & 0xFF),            // Vector
-           (uint32_t)((entry >> 16) & 1),       // Mask (0 = unmasked)
-           (uint32_t)((entry >> 15) & 1),       // Trigger (0 = edge)
-           (uint32_t)((entry >> 13) & 1),       // Polarity (0 = high)
-           (uint32_t)(entry >> 56)              // Destination LAPIC ID
-    );
-}
+#ifdef DEBUG
+    void ioapic_dump_entry(int gsi) {
+        set_printf_color(VGA_COLOR_MAGENTA);
+            uint64_t entry = ioapic_read(IOAPIC_REDTBL_BASE + gsi * 2) |
+                            ((uint64_t)ioapic_read(IOAPIC_REDTBL_BASE + gsi * 2 + 1) << 32);
+            printf("GSI %d: 0x%016lx | vector=%u | mask=%u | trigger=%u | polarity=%u | dest=%u\n",
+                gsi, entry,
+                (uint32_t)(entry & 0xFF),            // Vector
+                (uint32_t)((entry >> 16) & 1),       // Mask (0 = unmasked)
+                (uint32_t)((entry >> 15) & 1),       // Trigger (0 = edge)
+                (uint32_t)((entry >> 13) & 1),       // Polarity (0 = high)
+                (uint32_t)(entry >> 56)              // Destination LAPIC ID
+            );
+        set_printf_color(VGA_COLOR_WHITE);
+    }
+#endif
 
 void ioapic_init()
 {
 
     // Map IOAPIC physical address to virtual memory
     if (acpi_ioapic_base == 0) {
-        printf("No IOAPIC found in ACPI tables");
+        set_printf_color(VGA_COLOR_RED);
+            printf("No IOAPIC found in ACPI tables");
+        set_printf_color(VGA_COLOR_WHITE);
     }
 
     uintptr_t ioapic_virt = acpi_ioapic_base;
@@ -63,7 +70,9 @@ void ioapic_init()
     uint32_t version = ioapic_read(IOAPIC_REG_VER);
     uint32_t max_redir =(version >> 16) & 0xFF; // Max redirection entry index(pins on card)
     #ifdef DEBUG
-        printf("IOAPIC: version=%x, max_redir=%u\n", version & 0xFF, max_redir);
+        set_printf_color(VGA_COLOR_DARK_GREY);
+            printf("IOAPIC: version=%x, max_redir=%u\n", version & 0xFF, max_redir);
+        set_printf_color(VGA_COLOR_WHITE);
     #endif
 
     // Mask all redirection entries

@@ -1,4 +1,6 @@
 #include "drivers/apic/lapic.h"
+#include "drivers/uhci.h"
+#include "drivers/usb.h"
 #include "exe.h"
 #include "process/process.h"
 #include "terminal/printf.h"
@@ -64,8 +66,8 @@ static Command commands[] = {
     { "ping",         cmd_ping         },
     // --- proccess ---
     { "processes",    cmd_processes    },
-    // --- ACPI ---
-    { "showrsdt",     cmd_showrsdt     },
+    // --- external devices (usb) ----
+    { "lsusb",        cmd_show_usb     },
 };
 
 static int num_commands = sizeof(commands) / sizeof(commands[0]);
@@ -113,9 +115,8 @@ static const char* help_lines[] = {
     "--- Network ---",
     "ping <ip>   - Ping an IP address (e.g. ping 10.0.2.2)",
     "",
-    "--- ACPI ---",
-    "showrsdt    - Show the entries of the ACPI (The qemu ACPI is very old)",
-    "",
+    "--- USB ---",
+    "lsusb       - Show the supporteds devices (UHCI Controllers)",
     0
 };
 
@@ -781,13 +782,12 @@ static void cmd_processes(uint8_t color) {
     printf("\nProcesses count: %d\n", nr_processes);
 }
 
-static void cmd_showrsdt(uint8_t color) {
-    #ifndef DEBUG
-        printf("\nThis commands only shows output if this OS was compiled in DEBUG mode\n");
-    #else
-        printf("\n");
-    #endif
-    // Nothing...
+static void cmd_show_usb(uint8_t color) {
+    printf("\n");
+    for (int i = 0; i < USBDevices_Count; i++) {
+        printf("UHCI Controller (%02X:%02X.%x)\n", USBDevices[i].data->device.bus, USBDevices[i].data->device.slot, USBDevices[i].data->device.func);
+    }
+    // printf("%x\n", ((struct UHCIDevice*)USBDevices[0].data)->framelist[0]);
 }
 
 static int streq(unsigned char *a, char *b) {

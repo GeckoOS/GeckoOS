@@ -56,7 +56,9 @@ manual:
     for (uint64_t p = (0x40E * 0x10) & 0x000FFFFF; p < 0x40E + 1024; p += 0x10 / sizeof(p))
         if (*(uint64_t*)p == 0x5253442050545220) return (void*)p;
 nothing:
-    printf("No ACPI tag found!\n");
+    set_printf_color(VGA_COLOR_RED);
+        printf("No ACPI tag found!\n");
+    set_printf_color(VGA_COLOR_WHITE);
     return NULL;
 }
 
@@ -169,7 +171,9 @@ static int parse_madt_entries(struct acpi_madt *madt)
     // Map LAPIC base
     acpi_lapic_base =madt->lapic_addr;
     #ifdef DEBUG
-        printf("LAPIC is at %p\n", acpi_lapic_base);
+        set_printf_color(VGA_COLOR_DARK_GREY);
+            printf("LAPIC is at %p\n", acpi_lapic_base);
+        set_printf_color(VGA_COLOR_WHITE);
     #endif
 
     // Parse entries after the MADT header
@@ -196,8 +200,10 @@ static int parse_madt_entries(struct acpi_madt *madt)
             struct madt_ioapic *io = (struct madt_ioapic *)ptr;
             acpi_ioapic_base       = io->addr;//mmio_map(io->addr, PAGE_SIZE);
             #ifdef DEBUG
-                printf("IOAPIC found: addr=%p, gsi_base=%u\n", acpi_ioapic_base,
-                    io->gsi_base);
+                set_printf_color(VGA_COLOR_DARK_GREY);
+                    printf("IOAPIC found: addr=%p, gsi_base=%u\n", acpi_ioapic_base,
+                        io->gsi_base);
+                set_printf_color(VGA_COLOR_WHITE);
             #endif
             found_ioapic = 1;
             break;
@@ -242,7 +248,9 @@ int acpi_init()
         (struct acpi_rsdp_v1 *)find_rsdp();
 
     if (!rsdp) {
-        printf("FAIL: No RSDP found\n");
+        set_printf_color(VGA_COLOR_RED);
+            printf("FAIL: No RSDP found\n");
+        set_printf_color(VGA_COLOR_WHITE);
         return -1;
     }
     // debuging forgot to enable maping hate this shit
@@ -269,7 +277,9 @@ int acpi_init()
             struct acpi_header *xsdt_header = (struct acpi_header *)mmio_map(
                 rsdp_v2->xsdt_addr, sizeof(struct acpi_header));
             if (!xsdt_header) {
-                printf("FAIL: Could not map XSDT header\n");
+                set_printf_color(VGA_COLOR_RED);
+                    printf("FAIL: Could not map XSDT header\n");
+                set_printf_color(VGA_COLOR_WHITE);
             } else {
                 if (*(uint32_t*)xsdt_header->signature == 0x54445358) {
                     // Map full XSDT
@@ -292,7 +302,9 @@ int acpi_init()
                                 (struct acpi_header *)mmio_map(
                                     entries[i], sizeof(struct acpi_header));
                             if (!hdr) {
-                                printf("FAIL: Could notmap header\n");
+                                set_printf_color(VGA_COLOR_RED);
+                                    printf("FAIL: Could notmap header\n");
+                                set_printf_color(VGA_COLOR_WHITE);
                                 continue;
                             }
                             uint32_t length = hdr->length;
@@ -320,7 +332,9 @@ int acpi_init()
                         }
                     }
                 } else {
-                    printf("Invalid XSDT signature\n");
+                    set_printf_color(VGA_COLOR_RED);
+                        printf("Invalid XSDT signature\n");
+                    set_printf_color(VGA_COLOR_WHITE);
                 }
             }
         }
@@ -353,7 +367,6 @@ int acpi_init()
                                 entries[i], sizeof(struct acpi_header));
                         if (!hdr)
                             continue;
-                        // printf("    Signature: %.4s\n",hdr->signature);
                         switch (*(uint32_t*)hdr->signature) {
                             case 0x43495041: // MADT
                                 madt = (struct acpi_madt *)mmio_map(
@@ -383,13 +396,15 @@ int acpi_init()
     }
 
     if (!madt) {
-        printf("\nFAIL: MADT not found in any table\n");
-        printf("This means either:\n");
-        printf("  1. ACPI tables are corrupted\n");
-        printf("  2. Memory mapping is failing\n");
-        printf("  3. Your MMIO mapping doesn't work for physical addresses > "
-               "4GB\n");
-        printf("  4. find_rsdp() returned a pointer to unmapped memory\n");
+        set_printf_color(VGA_COLOR_LIGHT_RED);
+            printf("\nFAIL: MADT not found in any table\n");
+            printf("This means either:\n");
+            printf("  1. ACPI tables are corrupted\n");
+            printf("  2. Memory mapping is failing\n");
+            printf("  3. Your MMIO mapping doesn't work for physical addresses > "
+                "4GB\n");
+            printf("  4. find_rsdp() returned a pointer to unmapped memory\n");
+        set_printf_color(VGA_COLOR_WHITE);
         return -2;
     }
 
@@ -425,6 +440,8 @@ int acpi_init()
 }
 int shutdown() {
     if (!fadt) return -1;
+
+    // Someday...
 
     return 0;
 }
