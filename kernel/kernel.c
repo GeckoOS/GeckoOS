@@ -2,7 +2,10 @@
 #include "drivers/acpi.h"
 #include "drivers/apic/lapic.h"
 #include "drivers/mouse.h"
+#include "drivers/tables/isr.h"
+#include "drivers/uhci.h"
 #include "drivers/usb.h"
+#include "ports.h"
 #include "terminal/printf.h"
 #include <colors.h>
 #include <commands.h>
@@ -19,6 +22,7 @@
 #include <mem/physical_mem.h>
 #include <net/arp.h>
 #include <net/net.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <terminal/terminal.h>
 #include <fs/fs.h>
@@ -66,26 +70,27 @@ void _entry(uint64_t mbi) {
         init_idt();
         printc("Installing IRQ... \n", VGA_COLOR_LIGHT_GREY);
         irq_install();
-        printc("Setting up LAPIC.. \n", VGA_COLOR_LIGHT_GREY);
+        printc("Setting up LAPIC... \n", VGA_COLOR_LIGHT_GREY);
         ret = lapic_init();
         if (ret) {
             printf("Setting up LAPIC failed err %d", ret);
         }
-        printc("Preparing IOAPIC.. \n", VGA_COLOR_LIGHT_GREY);
+        printc("Preparing IOAPIC... \n", VGA_COLOR_LIGHT_GREY);
         ioapic_init();
         asm volatile("sti"); // repoening interrupts
     } else {
         // idk should have apic not my problem
     }
     //================= hardware init===================//
-    printc("Enabling Timer ...\n", VGA_COLOR_LIGHT_GREY);
+    printc("Enabling Timer...\n", VGA_COLOR_LIGHT_GREY);
     lapic_timer_start();
-    printc("Enabling hardware devices ...\n", VGA_COLOR_LIGHT_GREY);
+    printc("Enabling hardware devices...\n", VGA_COLOR_LIGHT_GREY);
     // basic stuff
     keyboard_install();
     set_layout(LAYOUTS[0]);
     mouse_init();
     terminal_init();
+    register_interrupt_handler(0x6, ud_exception_handler);
     // pci init
     enumerate_pci();
     pci_detect_controllers();
@@ -117,6 +122,8 @@ void kmain() {
         if (fsmount(i)) break;
     } if (!fs)
         printc("The drives 1 - 4 don't have any disk attached (Or it failed when mounting the FAT32 filesystem)\n\n", VGA_COLOR_RED);
+
+    GetUHCIDescriptor((struct UHCIDevice*)USBDevices[0].data);
 
     while (1) {
         printc("gecko> ", PROMPT_COLOR);

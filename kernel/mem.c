@@ -1,6 +1,7 @@
 #include <mem.h>
 #include <drivers/vga.h>
 #include <gk/gk.h>
+#include <stdint.h>
 #include <terminal/terminal.h>
 #include <stdalign.h>
 
@@ -114,6 +115,28 @@ static void split_block(block *b, unsigned long size) {
 void *kmalloc(unsigned long size) {
 
     size = ALIGN8(size);
+
+    // trying to search for a place to allocate a block
+    block *b = find_free_block(size);
+
+    if (b) {
+        b->free = 0;
+        split_block(b, size);
+        return (void *)(b + 1);
+    }
+    // if no block exists that is free increase size
+    b = create_block(size);
+
+    // if still no space do not reedem the giftcard
+    if (!b) {
+        return NULL;
+    }
+    // i have a free var in a block and
+    return (void *)(b + 1);
+}
+void *kmalloc_aligned(unsigned long size, uint32_t alignment) {
+    alignment--;
+    size = (size + alignment) & ~alignment;
 
     // trying to search for a place to allocate a block
     block *b = find_free_block(size);
