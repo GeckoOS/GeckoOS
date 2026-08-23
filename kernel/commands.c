@@ -24,6 +24,7 @@
 #include <net/icmp.h>
 #include <net/arp.h>
 #include <drivers/e1000.h>
+#include <boot/multiboot2.h>
 
 extern uint32_t memsize_grub;
 
@@ -555,11 +556,14 @@ static void cmd_uptime(uint8_t color) {
 }
 
 static void cmd_meminfo(uint8_t color) {
+    extern struct multiboot2_mmap_entry max_mem_used;
+
     printc("\nMemory:\n", color);
-    printc("  Heap base : 0x200000\n", color);
-    printc("  Heap end  : 0x500000 (3 MB window, hardcoded)\n", color);
-    printf( "  Memory size (This isn't exact, This will be less for around 42%%)  : %dMb\n", memsize_grub / 1048576);
-    printc("  TODO: wire up Multiboot2 memory map (Phase 1)\n", color);
+    printf("  Heap base : %x\n", max_mem_used.base_addr + 0x100000);
+    printf("  Heap end  : %x (%dMb window)\n", (max_mem_used.base_addr + 0x100000) + max_mem_used.length, max_mem_used.length / 1048576);
+    printf("  Memory size  : %dMb\n", max_mem_used.length / 1048576);
+    printc("Heap map:\n", color);
+    dump_heap();
     printc("\n", color);
 }
 

@@ -55,4 +55,5 @@ void isr_handler(registers_t *regs) {
             check > 21 ? "" : " But that interruption has an error string: ",
             check > 21 ? "" : interrupt_string_table[regs->int_no]);     
     }
+    // for (;;);
 }

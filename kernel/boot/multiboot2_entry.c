@@ -22,6 +22,7 @@ uint8_t  g_fb_bpp;
 uint32_t memsize_grub; // mem_lower * mem_upper
 struct multiboot2_tag_acpi* acpi_info_grub = NULL;
 uint64_t max_addr_used     = 0; // To map physical memory
+struct multiboot2_mmap_entry max_mem_used; // For the heap
 
 #ifdef DEBUG
     struct multiboot2_tag_bootloader_name* bootloader_info;
@@ -82,8 +83,10 @@ void multiboot2_main(uint64_t magic, uint64_t mbi_addr)
                     while ((uintptr_t)entry < (uintptr_t)tag + tag->size) {
                         if (entry->type == MULTIBOOT2_MEMORY_AVAILABLE) {
                             uint64_t region_end = entry->base_addr + entry->length;
-                            if (region_end > max_addr_used)
+                            if (region_end > max_addr_used) {
                                 max_addr_used = region_end;
+                                max_mem_used = *entry;
+                            }
                         }
                         entry = (multiboot2_mmap_entry_t *)((uintptr_t)entry +
                                                             mmap_tag->entry_size);

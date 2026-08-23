@@ -4,35 +4,40 @@
 #ifndef _MEM_H
 #define _MEM_H
 //idk but they say aligning is important
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+
 #define ALIGN8(x) (((x) + 7) & ~7)
+#define ALIGN4M(x) (((x) + 4095) & ~4095)
 
 #define KERNEL_VIRT_BASE 0xFFFFFFFF80000000
 
 //this is block of memory
-typedef struct block block ;
+
+// #define BLOCK_MAGIC 0xDDDEAAD
+
+typedef struct block block;
 struct block{
-    int size;
-    int free;
+    // uint32_t magic; // Who need magic numbers
+    size_t size;
+    bool free;
     block* next;
-    
 };
 
 void* memcpy(void* dest, const void* src, unsigned long n);
 void* memmove(void* dest, const void* src, unsigned long n);
 
-static block* find_free_block(unsigned long size) ;
 //Ember2819
 void* memset(void* dest, int val, unsigned long n);
 //helper functions to allocate memory
-static block* find_free_block(unsigned long size) ;
 static block* create_block(unsigned long size);
-static void split_block(block * b,unsigned long size);
 
-void kalloc_init();
+void kalloc_init(uint64_t start, uint64_t size);
 void* kmalloc(unsigned long size);
-void* kmalloc_aligned(unsigned long size, uint32_t alignment);
+void* kmalloc_4m(unsigned long size);
+
+void dump_heap();
 
 void kfree(void* p);
 void combine_blocks();

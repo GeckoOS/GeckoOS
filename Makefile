@@ -43,11 +43,11 @@ grub-modules/i386-pc/modinfo.sh:
 	@cp -r /tmp/usr/lib/grub/i386-pc grub-modules/
 	@rm -rf /tmp/usr /tmp/grub-x86_64.pkg.tar.zst
 
-grub-iso: kernel.elf grub-modules/i386-pc/modinfo.sh
+grub-iso: kernel.elf
 	@mkdir -p $(ISODIR)/boot/grub
 	cp kernel.elf         $(ISODIR)/boot/kernel.elf
 	cp boot/grub/grub.cfg $(ISODIR)/boot/grub/grub.cfg
-	grub-mkrescue --directory=grub-modules/i386-pc -o gecko.iso $(ISODIR) --locale-directory=/usr/share/locale
+	grub-mkrescue -o gecko.iso $(ISODIR) --locale-directory=/usr/share/locale
 	@echo "gecko.iso built. Boot with:  make run-grub"
 
 run-grub: gecko.iso
@@ -70,8 +70,19 @@ run-fat32: gecko.iso fat32.img # I dont want to make a new .img
 	  -drive format=raw,file=fat32.img \
 	  -boot order=d \
 	  -netdev user,id=net0 \
-	  -device e1000,netdev=net0 -machine acpi=on \
-	  -monitor stdio # -M hpet=on -machine q35 # -smp 4 # -d int,pcall
+	  -device e1000,netdev=net0 \
+	  -monitor stdio
+
+run-uhci: gecko.iso fat32.img
+	qemu-system-x86_64 \
+	  -cdrom gecko.iso -m 512M \
+	  -drive format=raw,file=fat32.img \
+	  -boot order=d \
+	  -netdev user,id=net0 \
+	  -device e1000,netdev=net0 \
+	  -monitor stdio -display sdl \
+	  -device piix3-usb-uhci,id=uhci -device usb-mouse,bus=uhci.0
+# I use SDL as display because my WM is bugged and i dont want to waste time fixing it
 
 VBOXCreateMachine:
 	VBoxManage createvm --name "GECKOOS" --ostype "Other_64" --register

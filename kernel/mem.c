@@ -1,9 +1,10 @@
+#include "terminal/printf.h"
 #include <mem.h>
 #include <drivers/vga.h>
 #include <gk/gk.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <terminal/terminal.h>
-#include <stdalign.h>
 
 void *memcpy(void *dest, const void *src, unsigned long n) {
     unsigned char *d = dest;
@@ -45,144 +46,123 @@ int strlen(char *ptr) {
  
 // replace with real allocator later but should be fine for now
 // kotofyt: it is not
-extern unsigned char __bss_start;
-extern unsigned char __bss_end;
+// pumpkicks: is this enough?
 
-static void *heap_ptr;
+static void *heap_ptr = NULL;
+static void *heap_end = NULL;
+static block *free_list_head = NULL;
 
-//no idea where it should end
-static void *heap_end;
+#define BLOCK_BUFFER(x) ((uint64_t)x + sizeof(block))
+#define BLOCK_BUFFER_METADATA(x) ((uint64_t)x - sizeof(block))
 
-static block *free_list_head;
+// Let's just have a heap with 3MB of size, that is enough (i think)
+// Grub needs at least 5MB to boot so that is fine
 
-/* uint64_t kalloc_get_memory_maps_e820() {
-    // they should be at 0x8000
-    // todo: implement this
-    return -1;
-} */
+void kalloc_init(uint64_t start, uint64_t size) {
+    heap_ptr = (void*)start;
+    heap_end = heap_ptr + size;
 
-void kalloc_init() {
-    heap_ptr = (void *)0x200000;
-    heap_end=(void*)0x500000;
-    free_list_head = NULL;
+    free_list_head = (block*)heap_ptr;
+    free_list_head->free = true;
+    free_list_head->size = heap_end - heap_ptr;
+    free_list_head->next = NULL;
 }
 
-// void* kmalloc(unsigned long size) {
-//	void *ptr = heap_ptr;
-//	heap_ptr+=size;
-//	return ptr;
-// }
-static block *find_free_block(unsigned long size) {
-    // if heap is empty return the heap_ptr
-
-    block *p;
-    for (p = free_list_head; p; p = p->next) {
-        if (p->free && p->size >= size)
-            return p;
+// Divide the free_list_head into smaller blocks with the wanted size
+static block *create_block(unsigned long size) {
+    if (((uint64_t)free_list_head + sizeof(block) + size) > (uint64_t)heap_end) return NULL;
+    if (!free_list_head) {
+        printf("You should initialize the fucking heap\n");
+        return NULL;
     }
+
+    block* curl = heap_ptr;
+    while (curl) {
+        if (curl->free && curl->size >= size) {
+            if (!curl->next) {
+                free_list_head = (block*)((BLOCK_BUFFER(curl)) + size);
+                free_list_head->free = true;
+                free_list_head->size = ((uint64_t)heap_end - (uint64_t)free_list_head) - sizeof(block);
+                free_list_head->next = NULL;
+
+                curl->next = free_list_head;
+            }
+
+            curl->free = false;
+            curl->size = size;
+
+            return curl;
+        }
+        // If the next block is free and the size of this block plus the next are the more than the wanted size, mix them and return it
+        if (curl->free && curl->next) {
+            if (curl->next->free) {
+                if ((curl->size + curl->next->size) >= size) {
+                    curl->next = curl->next->next;
+                    if (!curl->next) {
+                        curl->next = (block*)(BLOCK_BUFFER(curl) + size);
+                        free_list_head = curl->next;
+
+                        curl->next->free = true;
+                        curl->size = ((uint64_t)heap_end - (uint64_t)free_list_head) - sizeof(block);
+                        curl->next->next = NULL;
+                    }
+
+                    curl->size = size;
+                    curl->free = false;
+
+                    return curl;
+                }
+            }
+        }
+        curl = curl->next;
+    }
+
     return NULL;
 }
-// suposed to create the blocks if they do not exist
-//
-static block *create_block(unsigned long size) {
-
-     if ((unsigned char*)heap_ptr + sizeof(block) + size > (unsigned char*)heap_end)
-         return NULL;
-    block *b = (block *)heap_ptr;
-    b->size = size;
-    b->free = 0;
-    b->next = NULL;
-    heap_ptr += ALIGN8(sizeof(block) + size);
-    return b;
-}
 // tehnically we should not occupy more than needed
-static void split_block(block *b, unsigned long size) {
-    if (b->size <= size + sizeof(block))
-        return;
-    // only get what we need
-    block *new_block = (block *)((char *)(b + 1) + size);
-    // creating the new block
-    new_block->size = b->size - size - sizeof(block);
-    new_block->free = 1;
-    new_block->next = b->next;
-    // giving proper size to the block that we need
-    b->size = size;
-    b->next = new_block;
-}
 // allocates memory on the heap(i hope idk where the pointer above leads)
 // using blocks(struct size,free,next) of memory
 // i am going to trust that nobody passes size 0
 void *kmalloc(unsigned long size) {
-
     size = ALIGN8(size);
 
-    // trying to search for a place to allocate a block
-    block *b = find_free_block(size);
-
-    if (b) {
-        b->free = 0;
-        split_block(b, size);
-        return (void *)(b + 1);
-    }
     // if no block exists that is free increase size
-    b = create_block(size);
+    block* b = create_block(size);
+    // i have a free var in a block and
+    return b ? (void *)(BLOCK_BUFFER(b)) : NULL;
+}
+void *kmalloc_4m(unsigned long size) {
+    size = ALIGN4M(size);
+    // if no block exists that is free increase size
+    block* b = create_block(size);
 
     // if still no space do not reedem the giftcard
     if (!b) {
         return NULL;
     }
     // i have a free var in a block and
-    return (void *)(b + 1);
+    return (void *)(ALIGN4M((uint64_t)b)) + 1;
 }
-void *kmalloc_aligned(unsigned long size, uint32_t alignment) {
-    alignment--;
-    size = (size + alignment) & ~alignment;
 
-    // trying to search for a place to allocate a block
-    block *b = find_free_block(size);
+void dump_heap() {
+    block* curl = heap_ptr;
+    while (curl) {
+        #ifdef DEBUG
+            printf("  Block at %p (Buffer at %p) with size = %d bytes, free = %d, next = %x\n", curl, ((uint64_t)curl + sizeof(block)), curl->size, curl->free, curl->next);
+        #else
+            printf("  Block at %p with size = %d bytes, free = %d, next = %p\n", curl, curl->size, curl->free, curl->next);
+        #endif
 
-    if (b) {
-        b->free = 0;
-        split_block(b, size);
-        return (void *)(b + 1);
+        curl = curl->next;
     }
-    // if no block exists that is free increase size
-    b = create_block(size);
-
-    // if still no space do not reedem the giftcard
-    if (!b) {
-        return NULL;
-    }
-    // i have a free var in a block and
-    return (void *)(b + 1);
+    printf("Free memory: %dMb\n", free_list_head->size / 1048576);
 }
+
 // frees the block allocated at ptr by seeting the free = 1
 void kfree(void *ptr) {
+    if (!ptr) return;
 
-    if (!ptr)
-        return;
+    block *b = (block*)(BLOCK_BUFFER_METADATA(ptr));
 
-    block *b = (block *)ptr - 1;
-
-    b->free = 1;
-
-    b->next = free_list_head;
-
-    free_list_head = b;
-}
-// combinging blocks idk when i should combine them so it doesn t do that much
-// lag
-void combine_blocks() {
-    block *b = free_list_head;
-
-    while (b && b->next) {
-        unsigned char *end = (unsigned char *)(b + 1) + b->size;
-
-        if ((unsigned char *)b->next == end && b->next->free) {
-            b->size += sizeof(block) + b->next->size;
-            b->next = b->next->next;
-        } else {
-            b = b->next;
-        }
-    }
+    b->free = true;
 }

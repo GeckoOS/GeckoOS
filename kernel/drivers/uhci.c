@@ -177,7 +177,7 @@ struct USBDevice uhci_init(struct PCIDevice device) {
     // I dont know if this works, it should disable the io and memory decode, but with this or without it, it is still the same
     IOBar bar4 = PCIGetIOBar(device, 4);
 
-    struct UHCIDevice* controller = kmalloc(sizeof(struct UHCIDevice));
+    struct UHCIDevice* controller = kmalloc_4m(sizeof(struct UHCIDevice));
     controller->header.device = device;
     controller->framelist = kmalloc(1024 * sizeof(FrameEntry));
     memset(controller->framelist, 0, 1024 * sizeof(FrameEntry));
@@ -211,6 +211,7 @@ struct USBDevice uhci_init(struct PCIDevice device) {
 
     // Set Frame List Base Address
     SetUHCIRegisterL(*controller, FRBASE, (uint32_t)(controller->framelist));
+    printf("%x %p\n", ReadUHCIRegisterL(*controller, FRBASE), controller->framelist);
     SetUHCIRegisterW(*controller, FRNUM, 0x0);
     SetUHCIRegisterW(*controller, SOFMOD, 0x40);
 

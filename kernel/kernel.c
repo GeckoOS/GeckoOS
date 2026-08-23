@@ -5,6 +5,7 @@
 #include "drivers/tables/isr.h"
 #include "drivers/uhci.h"
 #include "drivers/usb.h"
+#include "mem.h"
 #include "ports.h"
 #include "terminal/printf.h"
 #include <colors.h>
@@ -41,12 +42,13 @@ void kmain();
 
 // uint64_t global_table;
 
-extern struct pci_bus pci_root_bus;
+// extern struct pci_bus pci_root_bus;
+extern struct multiboot2_mmap_entry max_mem_used;
 
 __attribute__((section(".text.entry")))
 void _entry(uint64_t mbi) {
     initialize_memory_manager_from_mbi(mbi);
-    kalloc_init();
+    kalloc_init(max_mem_used.base_addr + 0x100000, max_mem_used.length);
 
     if (!vmm_init()) {
         printc("Vmm_init failed -- halting\n", VGA_COLOR_RED);
@@ -108,7 +110,6 @@ void _entry(uint64_t mbi) {
     printf("GeckoOS Version %s\n", GECKO_VERSION);
     #ifdef DEBUG
         printf("Booted via %s/Multiboot2.\n", bootloader_info->string);
-        // pci_lspci();
     #else
         printc("Booted via GRUB/Multiboot2.\n", TERM_COLOR);
     #endif
@@ -123,7 +124,7 @@ void kmain() {
     } if (!fs)
         printc("The drives 1 - 4 don't have any disk attached (Or it failed when mounting the FAT32 filesystem)\n\n", VGA_COLOR_RED);
 
-    GetUHCIDescriptor((struct UHCIDevice*)USBDevices[0].data);
+    // GetUHCIDescriptor((struct UHCIDevice*)USBDevices[0].data);
 
     while (1) {
         printc("gecko> ", PROMPT_COLOR);
