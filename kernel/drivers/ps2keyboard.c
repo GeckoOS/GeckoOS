@@ -102,6 +102,8 @@ void ps2_kb_init()
 // Im getting tired of writing these dumb comments that nobody reads.
 // I read them...
 
+// you can make someone's day better just leaving those easter eggs :)
+
 void set_layout(KeyboardLayout layout)
 {
     unsigned char *lowercase = layout.lower;

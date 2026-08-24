@@ -70,7 +70,7 @@ irq_common_stub:
     pushaq
 
     mov rdi, rsp
-    call irq_handler
+    call [irq_handler]
 
     popaq
     add rsp, 16             ; pop int_no and err_code

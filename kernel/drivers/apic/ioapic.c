@@ -104,6 +104,6 @@ void ioapic_redirect_irq(int gsi, int vector, uint16_t flags)
     
     ioapic_set_entry((uint32_t *)ioapic, pin, entry);
    
-    //ioapic_dump_entry(gsi);
+    // ioapic_dump_entry(gsi);
    
 }

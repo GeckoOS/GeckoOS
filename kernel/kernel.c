@@ -3,8 +3,7 @@
 #include "drivers/apic/lapic.h"
 #include "drivers/mouse.h"
 #include "drivers/tables/isr.h"
-#include "drivers/uhci.h"
-#include "drivers/usb.h"
+#include <drivers/pit.h>
 #include "mem.h"
 #include "ports.h"
 #include "terminal/printf.h"
@@ -44,11 +43,14 @@ void kmain();
 
 // extern struct pci_bus pci_root_bus;
 extern struct multiboot2_mmap_entry max_mem_used;
+extern struct madt_iso pit_timer_iso;
+
+bool has_apic;
 
 __attribute__((section(".text.entry")))
 void _entry(uint64_t mbi) {
     initialize_memory_manager_from_mbi(mbi);
-    kalloc_init(max_mem_used.base_addr + 0x100000, max_mem_used.length);
+    kalloc_init(max_mem_used.base_addr, max_mem_used.length);
 
     if (!vmm_init()) {
         printc("Vmm_init failed -- halting\n", VGA_COLOR_RED);
@@ -59,19 +61,25 @@ void _entry(uint64_t mbi) {
     outb(0x23, 0x01);
 
     //=====================Setting up interrupts===================//
-    int ret = acpi_init();
+
+    has_apic = cpu_has_apic();
+
+    int ret = acpi_init(); // This activates the PIT timer if the is a interrupt source override with the irq of the PIT timer
     if (ret != 0) {
         set_printf_color(VGA_COLOR_RED);
             printf("initializing apic failed: %d \n", ret);
         set_printf_color(VGA_COLOR_WHITE);
     }
 
-    if (cpu_has_apic()) {
+    printc("Mapping IDT... \n", VGA_COLOR_LIGHT_GREY);
+    init_idt();
+    printc("Installing IRQ... \n", VGA_COLOR_LIGHT_GREY);
+    irq_install();
+
+    // pit_timer_wait(100);
+
+    if (has_apic) {
         asm volatile("cli"); // cutting interrupts while we set em up
-        printc("Mapping IDT... \n", VGA_COLOR_LIGHT_GREY);
-        init_idt();
-        printc("Installing IRQ... \n", VGA_COLOR_LIGHT_GREY);
-        irq_install();
         printc("Setting up LAPIC... \n", VGA_COLOR_LIGHT_GREY);
         ret = lapic_init();
         if (ret) {
@@ -80,12 +88,17 @@ void _entry(uint64_t mbi) {
         printc("Preparing IOAPIC... \n", VGA_COLOR_LIGHT_GREY);
         ioapic_init();
         asm volatile("sti"); // repoening interrupts
+
+        printc("Enabling Timer...\n", VGA_COLOR_LIGHT_GREY);
+        start_pit_timer(PITHZ);
+        lapic_timer_start();
+        lapic_start_cores();
     } else {
-        // idk should have apic not my problem
+        // Use PIT as the timer
+        // printc("Using PIT timer (50Hz)... \n", VGA_COLOR_LIGHT_GREY);
+        // start_pit_timer(50);
     }
     //================= hardware init===================//
-    printc("Enabling Timer...\n", VGA_COLOR_LIGHT_GREY);
-    lapic_timer_start();
     printc("Enabling hardware devices...\n", VGA_COLOR_LIGHT_GREY);
     // basic stuff
     keyboard_install();
@@ -97,8 +110,7 @@ void _entry(uint64_t mbi) {
     enumerate_pci();
     pci_detect_controllers();
 
-    // network init//
-    lapic_start_cores();
+    // network init
     net_init();
     arp_init();
     drives_init();

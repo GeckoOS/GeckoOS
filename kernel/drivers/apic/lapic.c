@@ -1,8 +1,8 @@
 #include "drivers/apic/lapic.h"
 #include "drivers/acpi.h"
-#include "drivers/tables/idt.h"
+#include "drivers/pit.h"
 #include "drivers/tables/irq.h"
-#include "drivers/usb.h"
+#include "drivers/vga.h"
 #include "mem/paging.h"
 #include "mem/physical_mem.h"
 #include "ports.h"
@@ -97,11 +97,12 @@ volatile uint64_t lapic_timer_tick = 0;
 // works finally
 void lapic_timer_handler(registers_t *_) {
     lapic_timer_tick++;
+}
+void lapic_timer_wait(uint64_t ticks) {
+    uint64_t eticks;
 
-    // Lets handle the usb stuff here :)
-    for (int i = 0; i < USBDevices_Count; i++) {
-        USBDevices[i].handler(USBDevices[i].data);
-    }
+    eticks = lapic_timer_tick + ticks;
+    while (lapic_timer_tick < eticks) PAUSE();
 }
 void cpu_set_apic_base(uint64_t apic)
 {

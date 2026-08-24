@@ -1,17 +1,16 @@
 #include "drivers/acpi.h"
 #include "boot/multiboot2.h"
-#include "drivers/tables/isr.h"
 #include "drivers/vga.h"
 #include "mem/paging.h"
-#include "ports.h"
 #include "string.h"
 #include "terminal/terminal.h"
 #include <stddef.h>
 #include <stdint.h>
 #include <terminal/printf.h>
 #include <drivers/tables/irq.h>
+#include <drivers/pit.h>
 
-// Iterate trough multi boot info structure tags and search for rsdp v1 or v2
+// Iterate trough multiboot info structure tags and search for rsdp v1 or v2
 void *find_rsdp()
 {
 
@@ -162,6 +161,8 @@ static struct acpi_madt *find_madt_via_rsdt(uint32_t rsdt_phys)
     return madt;
 }
 
+struct madt_iso pit_timer_iso;
+
 // Parse MADT entries
 static int parse_madt_entries(struct acpi_madt *madt)
 {
@@ -209,12 +210,14 @@ static int parse_madt_entries(struct acpi_madt *madt)
             break;
         }
 
-/*         case 2: { // ISO (Interrupt Source Override)
+         case 2: { // ISO (Interrupt Source Override)
             struct madt_iso *iso = (struct madt_iso *)ptr;
             // printf("ISO: bus=%u, irq=%u, gsi=%u, flags=0x%x\n",
-            // iso->bus,iso->irq, iso->gsi, iso->flags);
+            //    iso->bus,iso->irq, iso->gsi, iso->flags);
+            if (iso->irq == 0) // Where the PIT timer goes
+                pit_timer_iso = *iso;
             break;
-        } */
+        }
 /*         case 3: {
             break;
         }

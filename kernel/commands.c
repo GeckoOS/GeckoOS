@@ -1,4 +1,5 @@
 #include "drivers/apic/lapic.h"
+#include "drivers/pit.h"
 #include "drivers/uhci.h"
 #include "drivers/usb.h"
 #include "exe.h"
@@ -537,8 +538,8 @@ static void cmd_write(uint8_t color) {
 }
 
 static void cmd_uptime(uint8_t color) {
-    uint32_t ticks = lapic_timer_tick;
-    uint32_t seconds = ticks / 50;
+    uint32_t ticks = pit_timer;
+    uint32_t seconds = ticks / PITHZ;
     uint32_t minutes = seconds / 60;
     uint32_t hours   = minutes / 60;
     seconds %= 60;
