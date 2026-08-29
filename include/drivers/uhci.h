@@ -51,12 +51,20 @@
 
 #define PRT_RWC     (PRT_CSC | PRT_PEDC)
 
+#define FRAME_TYPE_QD 1
+#define FRAME_TYPE_TD 0
+
+#define HEADER_TYPE_IN 0x69
+#define HEADER_TYPE_OUT 0xE1
+#define HEADER_TYPE_SETUP 0x2D
+
 typedef uint32_t FrameEntry;
 
 struct UHCIQueueHead {
     uint32_t horizontal_pointer;
     uint32_t vertical_pointer;
 } __attribute__((packed));
+
 struct UHCITransferDescriptor {
     volatile uint32_t next;
     volatile uint32_t status;
@@ -68,49 +76,10 @@ struct UHCITransferDescriptor {
 struct UHCIDevice {
     struct BasicUSBHeader header;
     FrameEntry* framelist;
-    struct UHCIQueueHead qhpool[6];
-    struct UHCITransferDescriptor tdpool[24];
-};
-
-// Recipes
-struct UHCITransferDescriptorRecipe {
-    struct {
-        uint32_t address;
-        bool depth;
-        bool type;
-        bool terminate;
-    } PhysicalAddress;
-    struct {
-        bool spd;
-        uint8_t err_counter;
-        bool low_speed;
-        bool isochronous;
-        bool ioc;
-        bool active;
-        bool stalled;
-        bool dbe;
-        bool babble_detected;
-        bool non_ack;
-        bool timeoutcrc;
-        bool bse;
-        uint16_t actual_lenght;
-    } Status;
-    struct {
-        uint16_t max_lenght;
-        bool data_toggle;
-        uint8_t end_point;
-        uint8_t device;
-        uint32_t packet_type;
-    } PacketHeader;
-    uint32_t BufferAddress;
-};
-
-struct usb_setup_packet {
-    uint8_t requesttype;
-    uint8_t request;
-    uint16_t value;
-    uint16_t index;
-    uint16_t lenght;
+    bool speed; // 1 = Low speed
+    char* device_descriptor;
+    struct UHCIQueueHead* qhpool;
+    struct UHCITransferDescriptor* tdpool;
 };
 
 struct USBDevice uhci_init(struct PCIDevice device);

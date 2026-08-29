@@ -6,6 +6,8 @@
 
 volatile uint64_t pit_timer = 0;
 
+void pit_timer_wait_s(uint64_t ticks);
+
 static void timer_irq(registers_t* _) {
     pit_timer++;
 }

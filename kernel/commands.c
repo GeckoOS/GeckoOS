@@ -70,6 +70,7 @@ static Command commands[] = {
     { "processes",    cmd_processes    },
     // --- external devices (usb) ----
     { "lsusb",        cmd_show_usb     },
+    { "showusbs",     cmd_show_usb_info},
 };
 
 static int num_commands = sizeof(commands) / sizeof(commands[0]);
@@ -118,7 +119,8 @@ static const char* help_lines[] = {
     "ping <ip>   - Ping an IP address (e.g. ping 10.0.2.2)",
     "",
     "--- USB ---",
-    "lsusb       - Show the supporteds devices (UHCI Controllers)",
+    "lsusb       - Show connected supported devices (UHCI Controllers)",
+    "showusb     - Show connected supported devices info (USB Descriptor)",
     0
 };
 
@@ -793,6 +795,19 @@ static void cmd_show_usb(uint8_t color) {
         printf("UHCI Controller (%02X:%02X.%x)\n", USBDevices[i].data->device.bus, USBDevices[i].data->device.slot, USBDevices[i].data->device.func);
     }
     // printf("%x\n", ((struct UHCIDevice*)USBDevices[0].data)->framelist[0]);
+}
+static void cmd_show_usb_info(uint8_t color) {
+    // Shows info about every USB that is supported
+    
+    printf("\n");
+    for (int i = 0; i < USBDevices_Count; i++) {
+        printf("%s Controller (%02X:%02X.%x)\n", USBTypesTable[USBDevices[i].type], USBDevices[i].data->device.bus, USBDevices[i].data->device.slot, USBDevices[i].data->device.func);
+
+        printf("USB Descriptor dumped:\n");
+        for (int y = 0; y < 18 /* USB Descriptor response size */; y++) {
+            printf("%X ", ((struct UHCIDevice*)USBDevices[i].data)->device_descriptor[y]);
+        } printf("\n");
+    }
 }
 
 static int streq(unsigned char *a, char *b) {

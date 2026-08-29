@@ -163,6 +163,6 @@ typedef struct {
 void gk_init(GkState* s);
 
 bool gk_run(GkState* s, const char* src);
-extern void int_to_str(int v, char* buf);
+void int_to_str(int v, char* buf);
 
 #endif

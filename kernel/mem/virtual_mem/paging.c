@@ -189,6 +189,6 @@ void page_fault(registers_t* regs) {
     if (us) {print("user-mode ");}
     if (reserved) {print("reserved ");}
     print(") at ");
-    printf("0x%016p\nHalting...", faulting_address);
+    printf("0x%p\nHalting...", faulting_address);
     for (;;) asm("hlt");
 } 

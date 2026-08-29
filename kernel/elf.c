@@ -1,8 +1,4 @@
 #include "mem.h"
-#include "mem/paging.h"
-#include "mem/physical_mem.h"
-#include "ports.h"
-#include "process/process.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <elf.h>

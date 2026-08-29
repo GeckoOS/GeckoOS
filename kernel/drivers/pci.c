@@ -290,15 +290,27 @@ static void pci_filter(struct pci_dev *dev) {
         case PCI_CLASS_SBC:
             uint8_t ProgIF = pci_readb(dev->bus->primary, PCI_DEV(dev->devfn), PCI_FN(dev->devfn),
                                             offsetof(struct pci_hdr, common.prog_if));
-            if ((subclass != 0x3) || (ProgIF != 0x0)) break;
-            #ifdef DEBUG
-                printf("  [%02x:%02x.%d] UHCI Controller\n",
-                    bus, slot, fn);
-            #endif
-            USBDevices[USBDevices_Count] = uhci_init((struct PCIDevice){bus, slot, fn});
-            if (((struct UHCIDevice*)USBDevices[USBDevices_Count].data)->framelist) // if the framelist in null, the uhci initialization failed
-                GetUHCIDescriptor(((struct UHCIDevice*)USBDevices[USBDevices_Count++].data));
-            break;
+            if (subclass != 0x3) break; // Support only for USB controllers
+
+            switch (ProgIF) {
+                case 0x0: // UHCI
+                    #ifdef DEBUG
+                        printf("  [%02x:%02x.%d] UHCI Controller\n",
+                            bus, slot, fn);
+                    #endif
+                    USBDevices[USBDevices_Count] = uhci_init((struct PCIDevice){bus, slot, fn});
+
+                    if (((struct UHCIDevice*)USBDevices[USBDevices_Count].data)->framelist) // if the framelist in null, the uhci initialization failed
+                        GetUHCIDescriptor(((struct UHCIDevice*)USBDevices[USBDevices_Count++].data));
+                    break;
+                case 0x10: // OHCI
+                    #ifdef DEBUG
+                        printf("  [%02x:%02x.%d] OHCI Controller\n",
+                            bus, slot, fn);
+                    #endif
+                    break;
+                default: break;
+            } break;
     }
 }
 

@@ -79,7 +79,6 @@ void _entry(uint64_t mbi) {
     irq_install();
 
     // pit_timer_wait(100);
-
     if (has_apic) {
         asm volatile("cli"); // cutting interrupts while we set em up
         printc("Setting up LAPIC... \n", VGA_COLOR_LIGHT_GREY);

@@ -55,6 +55,7 @@ static void cmd_processes(uint8_t color);
 
 // usb
 static void cmd_show_usb(uint8_t color);
+static void cmd_show_usb_info(uint8_t color);
 
 // Dispatcher
 static int streq(unsigned char *a, char *b);

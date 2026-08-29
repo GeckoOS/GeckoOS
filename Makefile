@@ -85,7 +85,17 @@ run-uhci: gecko.iso fat32.img
 	  -netdev user,id=net0 \
 	  -device e1000,netdev=net0 \
 	  -monitor stdio \
-	  -device piix3-usb-uhci,id=uhci -device usb-kbd,bus=uhci.0
+	  -device piix3-usb-uhci,id=uhci -device usb-mouse,bus=uhci.0
+
+run-ohci: gecko.iso fat32.img
+	qemu-system-x86_64 \
+	  -cdrom gecko.iso -m 512M \
+	  -drive format=raw,file=fat32.img \
+	  -boot order=d \
+	  -netdev user,id=net0 \
+	  -device e1000,netdev=net0 \
+	  -monitor stdio \
+	  -device pci-ohci,id=ohci -device usb-mouse,bus=ohci.0
 
 VBOXCreateMachine:
 	VBoxManage createvm --name "GECKOOS" --ostype "Other_64" --register

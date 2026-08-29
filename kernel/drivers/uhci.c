@@ -2,6 +2,10 @@
 
 // damn like fr
 
+/*
+    Deprecated until someone finish this
+*/
+
 #include "drivers/uhci.h"
 #include "drivers/pci.h"
 #include "drivers/pit.h"
@@ -33,55 +37,12 @@ uint32_t ReadUHCIRegisterL(struct UHCIDevice controller, uint8_t reg) {
 void UHCIHandler(struct BasicUSBHeader* header) {
     struct UHCIDevice* controller = (struct UHCIDevice*)header;
 
-    
+    // Does nothing...
 }
 
 void uhci_interrupt(registers_t* r) {
-    printf("UHCI Interrupt!\n");
+    printf("\nERR: UHCI Timeout/Crc!\n");
 }
-
-struct UHCITransferDescriptor BakeTransferDescriptor(struct UHCITransferDescriptorRecipe recipe) {
-    struct UHCITransferDescriptor td;
-
-    // Set buffer
-    td.buffer = recipe.BufferAddress;
-
-    td.next = (recipe.PhysicalAddress.address & ~0xF) |
-        (recipe.PhysicalAddress.type << 1) |
-        (recipe.PhysicalAddress.depth << 2) |
-        (recipe.PhysicalAddress.terminate << 0);
-
-    // Set packet header
-    td.packet_header = (recipe.PacketHeader.packet_type & 0xFF) |
-        (recipe.PacketHeader.device << 8) |
-        (recipe.PacketHeader.end_point << 15) |
-        (recipe.PacketHeader.data_toggle << 19) |
-        (((recipe.PacketHeader.max_lenght - 1) & 0x7ff) << 21);
-
-    // Set status
-    td.status = recipe.Status.actual_lenght |
-        (recipe.Status.bse << 17) |
-        (recipe.Status.timeoutcrc << 18) |
-        (recipe.Status.non_ack << 19) |
-        (recipe.Status.babble_detected << 20) |
-        (recipe.Status.dbe << 21) |
-        (recipe.Status.stalled << 22) |
-        (recipe.Status.active << 23) |
-        (recipe.Status.ioc << 24) |
-        (recipe.Status.isochronous << 25) |
-        (recipe.Status.low_speed << 26) |
-        ((recipe.Status.err_counter & 0x3) << 27) |
-        (recipe.Status.spd << 29);
-
-    return td;
-}
-
-#define FRAME_TYPE_QD 1
-#define FRAME_TYPE_TD 0
-
-#define HEADER_TYPE_IN 0x69
-#define HEADER_TYPE_OUT 0xE1
-#define HEADER_TYPE_SETUP 0x2D
 
 void SetFrameEntry(struct UHCIDevice* controller, uint32_t index, uint32_t entry, bool framedisable, bool type) {
     if (!controller->framelist) return;
@@ -89,13 +50,6 @@ void SetFrameEntry(struct UHCIDevice* controller, uint32_t index, uint32_t entry
     controller->framelist[index] = (entry & ~0xF) |
         (framedisable << 0) |
         (type << 1);
-}
-
-void LinkTDWith(struct UHCITransferDescriptor* td, bool type, bool terminate, bool depth, void* next) {
-    td->next = ((uint32_t)next & ~0xF) |
-        (type << 1) |
-        (depth << 2) |
-        (terminate << 0);
 }
 
 uint32_t GetQueueHeadEntry(uint32_t entry, bool framedisable, bool type) {
@@ -114,6 +68,8 @@ struct USBDevice uhci_init(struct PCIDevice device) {
     struct UHCIDevice* controller = kmalloc(sizeof(struct UHCIDevice));
     controller->header.device = device;
     controller->framelist = (FrameEntry*)ALIGN((uint64_t)kmalloc_align(1024 * sizeof(FrameEntry), 4096), 4096);
+    controller->tdpool = (struct UHCITransferDescriptor*)ALIGN((uint64_t)kmalloc_align(32 * sizeof(struct UHCITransferDescriptor), 16), 16);
+    controller->qhpool = (struct UHCIQueueHead*)ALIGN((uint64_t)kmalloc_align(16 * sizeof(struct UHCIQueueHead), 16), 16);
     memset(controller->framelist, 0, 1024 * sizeof(FrameEntry));
 
     if (!bar4) {
@@ -132,8 +88,8 @@ struct USBDevice uhci_init(struct PCIDevice device) {
     // Enable I/O Bus mastering
     pci_writew(device.bus, device.slot, device.func, 0x4, pci_readw(device.bus, device.slot, device.func, 0x4) | (1 << 2) | (1 << 0));
 
-    // Disable interrupts
-    SetUHCIRegisterW(*controller, USBINTR, 0);
+    // Enable interrupts (Timeout CRC)
+    SetUHCIRegisterW(*controller, USBINTR, INTR_TIE);
 
     // Host controller reset
     SetUHCIRegisterW(*controller, USBCMD, ReadUHCIRegisterW(*controller, USBCMD) | CMD_HCRESET);
@@ -148,7 +104,7 @@ struct USBDevice uhci_init(struct PCIDevice device) {
     }
 
     // Set Frame List Base Address
-    SetUHCIRegisterL(*controller, FRBASE, (uint32_t)(controller->framelist));
+    SetUHCIRegisterL(*controller, FRBASE, (uint32_t)(controller->framelist) & ~0xFFF);
     SetUHCIRegisterW(*controller, FRNUM, 0x0);
     SetUHCIRegisterW(*controller, SOFMOD, 0x40);
 
@@ -183,6 +139,7 @@ struct USBDevice uhci_init(struct PCIDevice device) {
                     printf("Failed to enable UHCI Controller's port %d\n", i + 1);
                 set_printf_color(VGA_COLOR_WHITE);
             }
+            controller->speed = ReadUHCIRegisterW(*controller, reg) & (1 << 8);
             #ifdef DEBUG
                 uint16_t final_port = ReadUHCIRegisterW(*controller, reg);
 
@@ -208,28 +165,65 @@ struct USBDevice uhci_init(struct PCIDevice device) {
     usb.handler = UHCIHandler;
     usb.irq = pci_readb(device.bus, device.slot, device.func, 0x3c);
 
-    // irq_install_handler(usb.irq, uhci_interrupt, 0);
+    irq_install_handler(usb.irq, uhci_interrupt, 0);
 
     return usb;
 err:
     kfree(controller->framelist);
     controller->framelist = NULL;
+    kfree(controller->tdpool);
+    kfree(controller->qhpool);
     kfree(controller);
     return (struct USBDevice){0};
 }
 
+#ifdef DEBUG
+    void DumpTd(struct UHCITransferDescriptor td) {
+        printf("TD Dump:\n");
+        printf("  TD Buffer: %x\n", td.buffer);
+        printf("  TD Next:\n");
+        printf("    Physical address: %x\n", td.next & ~0xF);
+        printf("    Depth: %x\n", td.next & (1 << 2));
+        printf("    Memory structure type: %s\n", td.next & (1 << 1) ? "Queue head" : "Transfer descriptor");
+        printf("    Terminate: %x\n", td.next & (1 << 0));
+        printf("  TD Status:\n");
+        if (td.status & (1 << 17)) printf("    Bit stuff error\n");
+        if (td.status & (1 << 18)) printf("    Timeout CRC\n");
+        if (td.status & (1 << 19)) printf("    Non-Acknowledged\n");
+        if (td.status & (1 << 20)) printf("    Babble Detected\n");
+        if (td.status & (1 << 21)) printf("    Data Buffer Error\n");
+        if (td.status & (1 << 22)) printf("    Stalled\n");
+        if (td.status & (1 << 23)) printf("    Active\n");
+        if (td.status & (1 << 24)) printf("    Interrupt On Complete\n");
+        if (td.status & (1 << 25)) printf("    Is Isochronous\n");
+        if (td.status & (1 << 26)) printf("    Low speed\n");
+        printf("    Error counter: %x\n", (td.status >> 17) & 0x1F);
+        if (td.status & (1 << 27)) printf("    Short Packet Detect\n");
+        printf("    Actual length: %x\n", td.status & 0x7FF);
+        printf("  TD Packet header:\n");
+        printf("    Maximum length: %x\n", td.packet_header >> 21);
+        printf("    Data toggle: %x\n", td.packet_header & (1 << 19));
+        printf("    Packet type: %x\n", td.packet_header & 0xFF);
+        printf("    Endpoint: %x\n", (td.packet_header >> 15) & 0x7);
+        printf("    Device: %x\n", (td.packet_header >> 8) & 0x3F);
+    }
+#endif
+
 void GetUHCIDescriptor(struct UHCIDevice* controller) {
     struct usb_setup_packet* setup_packet = kmalloc(sizeof(struct usb_setup_packet));
-    setup_packet->requesttype = 0x06;
+    setup_packet->requesttype = 0x80;
     setup_packet->request = 0x06;
-    setup_packet->value = 0x20;
+    setup_packet->value = 0x0100;
     setup_packet->index = 0x00;
-    setup_packet->lenght = 0x009;
+    setup_packet->lenght = 0x012;
+
+    controller->device_descriptor = (char*)ALIGN((uint64_t)kmalloc_align(18, 16), 16);
+    memset(controller->device_descriptor, 0, 18);
 
     // 0
     controller->tdpool[0].buffer = (uint32_t)setup_packet;
 
-    controller->tdpool[0].next = ((uint32_t)(&controller->tdpool[1] - KERNEL_VIRT_BASE) & ~0xF) |
+    controller->tdpool[0].next = ((uint32_t)(&controller->tdpool[1]) & ~0xF) |
         (0 << 1) |
         (1 << 2) |
         (0 << 0);
@@ -239,11 +233,10 @@ void GetUHCIDescriptor(struct UHCIDevice* controller) {
         (0 << 8) |
         (0 << 15) |
         (0 << 19) |
-        (((8 - 1) & 0x7ff) << 21);
-    // printf("%x\n", controller->tdpool[0].packet_header);
+        ((0x7 & 0x7ff) << 21);
 
     // Set status
-    controller->tdpool[0].status = (uint32_t)0x7FF |
+    controller->tdpool[0].status = (uint32_t)0 |
         (0 << 17) |
         (0 << 18) |
         (0 << 19) |
@@ -253,32 +246,28 @@ void GetUHCIDescriptor(struct UHCIDevice* controller) {
         (1 << 23) |
         (0 << 24) |
         (0 << 25) |
-        (0 << 26) |
+        (controller->speed << 26) |
         (3 << 27) |
         (0 << 29);
 
     // 1
-    char out[18];
-    memset(out, 0, 18);
-    controller->tdpool[1].buffer = (uint32_t)out;
+    controller->tdpool[1].buffer = (uint32_t)controller->device_descriptor;
 
     controller->tdpool[1].next = ((uint32_t)(&controller->tdpool[2]) & ~0xF) |
-        (0 << 1) | // Type
-        (1 << 2) | // Depth
-        (0 << 0); // Terminate
+        (0 << 1) |
+        (1 << 2) |
+        (0 << 0);
 
-    // Set packet header
-    controller->tdpool[1].packet_header = (HEADER_TYPE_IN & 0xFF) | // Header type
-        (0 << 8) | // Device
-        (0 << 15) | // Endpoint
-        (1 << 19) | // Toggle
-        (((8 - 1) & 0x7ff) << 21); // Actual Length
+    controller->tdpool[1].packet_header = (HEADER_TYPE_IN & 0xFF) |
+        (0 << 8) |
+        (0 << 15) |
+        (1 << 19) |
+        (((0x11) & 0x7ff) << 21);
 
-    // Set status
-    controller->tdpool[1].status = (uint32_t)0x7FF |
+    controller->tdpool[1].status = (uint32_t)0 |
         (0 << 17) |
         (0 << 18) |
-        (1 << 19) |
+        (0 << 19) |
         (0 << 20) |
         (0 << 21) |
         (0 << 22) |
@@ -291,19 +280,17 @@ void GetUHCIDescriptor(struct UHCIDevice* controller) {
 
 
     // 2
-    controller->tdpool[2].buffer = (uint32_t)setup_packet;
+    controller->tdpool[2].buffer = (uint32_t)0;
 
     controller->tdpool[2].next = 1;
 
-    // Set packet header
-    controller->tdpool[2].packet_header = (HEADER_TYPE_OUT & 0xFF) | // Header type
-        (0 << 8) | // Device
-        (0 << 15) | // Endpoint
-        (0 << 19) | // Toggle
-        (((18 - 1) & 0x7ff) << 21); // Actual Length
+    controller->tdpool[2].packet_header = (HEADER_TYPE_OUT & 0xFF) |
+        (0 << 8) |
+        (0 << 15) |
+        (0 << 19) |
+        (((0x7FF) & 0x7ff) << 21);
 
-    // Set status
-    controller->tdpool[2].status = (uint32_t)0x7FF |
+    controller->tdpool[2].status = (uint32_t)0 |
         (0 << 17) |
         (0 << 18) |
         (1 << 19) |
@@ -317,23 +304,26 @@ void GetUHCIDescriptor(struct UHCIDevice* controller) {
         (3 << 27) |
         (0 << 29);
 
-    controller->qhpool->vertical_pointer = GetQueueHeadEntry((uint32_t)(&controller->tdpool[0]), 0, FRAME_TYPE_TD);
-    controller->qhpool->horizontal_pointer = GetQueueHeadEntry(0, 1, 0);
+    controller->qhpool[0].vertical_pointer = GetQueueHeadEntry((uint32_t)(&controller->tdpool[0]), 0, FRAME_TYPE_TD);
+    controller->qhpool[0].horizontal_pointer = GetQueueHeadEntry(0, 1, 0);
 
-    SetFrameEntry(controller, 0, (uint32_t)(&controller->qhpool[0] - KERNEL_VIRT_BASE), 0, FRAME_TYPE_QD);
+    SetFrameEntry(controller, 0, (uint32_t)(&controller->qhpool[0]), 0, FRAME_TYPE_QD);
     SetUHCIRegisterW(*controller, USBSTS, 0x00FF);
 
-#if 0 // Please someone help me with this shit
+#ifdef DEBUG
     for (int i = 0; i < 3; i++) {
-        printf("Waiting for packet %d (0x%p) to be readed...\n", i, &controller->tdpool[i]);
-        pit_timer_wait_ms(10);
+        printf("Waiting for packet %d (0x%p) to be readed...\n", i + 1, &controller->tdpool[i]);
+        pit_timer_wait_ms(5);
         while (controller->tdpool[i].status & (1 << 23)) PAUSE();
 
         // Check for errors
-        if (controller->tdpool[i].status & ((1 << 22) | (1 << 18))) {
-            // Stalled error
-            uint8_t err_cause = (controller->tdpool[i].status >> 17) & 0x1F;
-            printf("TD%d Failed! Status: 0x%x (Error code: 0x%x) %x\n", i, controller->tdpool[i].status, err_cause, out[0]);
+        if (ReadUHCIRegisterW(*controller, USBSTS) & (1 << 1)) {
+            #ifdef DEBUG
+                // DumpTd(controller->tdpool[i + 1]);
+                DumpTd(controller->tdpool[i]);
+            #endif
+            printf("TD%d Failed! Status\n", i);
+            break;
         }
         // printf("Interrupt: %x\n", ReadUHCIRegisterW(*controller, USBSTS));
     }
@@ -342,5 +332,7 @@ void GetUHCIDescriptor(struct UHCIDevice* controller) {
 
 void uhci_free(struct UHCIDevice* controller) {
     kfree(controller->framelist);
+    kfree(controller->tdpool);
+    kfree(controller->qhpool);
     kfree(controller);
 }

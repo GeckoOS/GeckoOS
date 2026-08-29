@@ -1,12 +1,9 @@
 #include "drivers/apic/lapic.h"
 #include "drivers/acpi.h"
-#include "drivers/pit.h"
 #include "drivers/tables/irq.h"
-#include "drivers/vga.h"
 #include "mem/paging.h"
 #include "mem/physical_mem.h"
 #include "ports.h"
-#include "terminal/terminal.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <terminal/printf.h>
@@ -94,15 +91,15 @@ void lapic_timer_start(void)
 }
 
 volatile uint64_t lapic_timer_tick = 0;
-// works finally
-void lapic_timer_handler(registers_t *_) {
-    lapic_timer_tick++;
-}
 void lapic_timer_wait(uint64_t ticks) {
     uint64_t eticks;
 
     eticks = lapic_timer_tick + ticks;
     while (lapic_timer_tick < eticks) PAUSE();
+}
+// works finally
+void lapic_timer_handler(registers_t *_) {
+    lapic_timer_tick++;
 }
 void cpu_set_apic_base(uint64_t apic)
 {
