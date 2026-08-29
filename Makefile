@@ -1,5 +1,6 @@
 # Makefile to make and run with QEMU. //ember2819
 CC      = clang
+CPP     = clang++
 AS      = nasm
 LD      = ld
 OBJCOPY = objcopy
@@ -12,8 +13,9 @@ CC_FLAGS = -target x86_64-elf -march=x86-64 -m64 -MMD -MP \
            -g -c $(addprefix -I,$(include_folder)) -DDEBUG
 LD_FLAGS = -m elf_x86_64
 
-SOURCES := $(shell find ./kernel -name "*.c" -o -name "*.s")
+SOURCES := $(shell find ./kernel -name "*.c" -o -name "*.cpp" -o -name "*.s")
 OBJECTS := $(patsubst ./kernel/%.c,./build/%.o,   $(SOURCES))
+OBJECTS := $(patsubst ./kernel/%.cpp,./build/%_cpp.o, $(OBJECTS))
 OBJECTS := $(patsubst ./kernel/%.s,./build/%_s.o, $(OBJECTS))
 DEPS    := $(OBJECTS:.o=.d)
 
@@ -22,7 +24,9 @@ all: grub-iso
 build/%.o: kernel/%.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CC_FLAGS) $< -o $@
-
+build/%_cpp.o: kernel/%.cpp
+	@mkdir -p $(dir $@)
+	$(CPP) $(CC_FLAGS) $< -o $@
 build/%_s.o: kernel/%.s
 	@mkdir -p $(dir $@)
 	$(AS) -felf64 $< -o $@
@@ -80,9 +84,8 @@ run-uhci: gecko.iso fat32.img
 	  -boot order=d \
 	  -netdev user,id=net0 \
 	  -device e1000,netdev=net0 \
-	  -monitor stdio -display sdl \
-	  -device piix3-usb-uhci,id=uhci -device usb-mouse,bus=uhci.0
-# I use SDL as display because my WM is bugged and i dont want to waste time fixing it
+	  -monitor stdio \
+	  -device piix3-usb-uhci,id=uhci -device usb-kbd,bus=uhci.0
 
 VBOXCreateMachine:
 	VBoxManage createvm --name "GECKOOS" --ostype "Other_64" --register

@@ -25,9 +25,15 @@ void start_pit_timer(uint32_t frequency) {
     outb(0x40, h);
 } 
 
-void pit_timer_wait(uint64_t ticks) {
+void pit_timer_wait_s(uint64_t ticks) {
     unsigned long eticks;
 
     eticks = pit_timer + ticks;
-    while(pit_timer < eticks) PAUSE();
+    while(pit_timer < eticks) HALT();
+}
+void pit_timer_wait_ms(uint32_t ms) {
+    uint32_t ticks = (ms + 9) / 10;
+
+    uint32_t start = pit_timer;
+    while ((pit_timer - start) < ticks) HALT();
 }

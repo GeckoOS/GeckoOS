@@ -295,7 +295,9 @@ static void pci_filter(struct pci_dev *dev) {
                 printf("  [%02x:%02x.%d] UHCI Controller\n",
                     bus, slot, fn);
             #endif
-            USBDevices[USBDevices_Count++] = uhci_init((struct PCIDevice){bus, slot, fn});
+            USBDevices[USBDevices_Count] = uhci_init((struct PCIDevice){bus, slot, fn});
+            if (((struct UHCIDevice*)USBDevices[USBDevices_Count].data)->framelist) // if the framelist in null, the uhci initialization failed
+                GetUHCIDescriptor(((struct UHCIDevice*)USBDevices[USBDevices_Count++].data));
             break;
     }
 }

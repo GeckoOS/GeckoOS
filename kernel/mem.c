@@ -3,6 +3,7 @@
 #include <drivers/vga.h>
 #include <gk/gk.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <terminal/terminal.h>
 
@@ -69,7 +70,7 @@ void kalloc_init(uint64_t start, uint64_t size) {
 }
 
 // Divide the free_list_head into smaller blocks with the wanted size
-static block *create_block(unsigned long size) {
+static block *create_block(unsigned long size, size_t alignment) {
     if (((uint64_t)free_list_head + sizeof(block) + size) > (uint64_t)heap_end) return NULL;
     if (!free_list_head) {
         printf("You should initialize the fucking heap\n");
@@ -78,6 +79,7 @@ static block *create_block(unsigned long size) {
 
     block* curl = heap_ptr;
     while (curl) {
+        size = (ALIGN((uint64_t)curl, alignment) - (uint64_t)curl) + size;
         if (curl->free && curl->size >= size) {
             if (!curl->next) {
                 free_list_head = (block*)((BLOCK_BUFFER(curl)) + size);
@@ -126,22 +128,17 @@ static block *create_block(unsigned long size) {
 void *kmalloc(unsigned long size) {
     size = ALIGN8(size);
 
-    // if no block exists that is free increase size
-    block* b = create_block(size);
-    // i have a free var in a block and
+    block* b = create_block(size, 1);
+
     return b ? (void *)(BLOCK_BUFFER(b)) : NULL;
 }
-void *kmalloc_4m(unsigned long size) {
-    size = ALIGN4M(size);
+void *kmalloc_align(unsigned long size, size_t alignment) {
+    size = ALIGN8(size);
     // if no block exists that is free increase size
-    block* b = create_block(size);
+    block* b = create_block(size, alignment);
 
-    // if still no space do not reedem the giftcard
-    if (!b) {
-        return NULL;
-    }
     // i have a free var in a block and
-    return (void *)(ALIGN4M((uint64_t)b)) + 1;
+    return b ? (void *)(BLOCK_BUFFER(b)) : NULL;
 }
 
 void dump_heap() {

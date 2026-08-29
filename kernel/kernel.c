@@ -4,6 +4,7 @@
 #include "drivers/mouse.h"
 #include "drivers/tables/isr.h"
 #include <drivers/pit.h>
+#include "drivers/uhci.h"
 #include "mem.h"
 #include "ports.h"
 #include "terminal/printf.h"
@@ -50,7 +51,8 @@ bool has_apic;
 __attribute__((section(".text.entry")))
 void _entry(uint64_t mbi) {
     initialize_memory_manager_from_mbi(mbi);
-    kalloc_init(max_mem_used.base_addr, max_mem_used.length);
+    kalloc_init(max_mem_used.base_addr + 0x100000, max_mem_used.length);
+    // mmio_map((uint64_t)max_mem_used.base_addr, max_mem_used.length);
 
     if (!vmm_init()) {
         printc("Vmm_init failed -- halting\n", VGA_COLOR_RED);
@@ -117,6 +119,8 @@ void _entry(uint64_t mbi) {
 
     #ifndef DEBUG
         terminal_clear(TERM_COLOR);
+    #else
+        printf("\n");
     #endif
 
     printf("GeckoOS Version %s\n", GECKO_VERSION);
@@ -135,8 +139,6 @@ void kmain() {
         if (fsmount(i)) break;
     } if (!fs)
         printc("The drives 1 - 4 don't have any disk attached (Or it failed when mounting the FAT32 filesystem)\n\n", VGA_COLOR_RED);
-
-    // GetUHCIDescriptor((struct UHCIDevice*)USBDevices[0].data);
 
     while (1) {
         printc("gecko> ", PROMPT_COLOR);

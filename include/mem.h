@@ -10,6 +10,7 @@
 
 #define ALIGN8(x) (((x) + 7) & ~7)
 #define ALIGN4M(x) (((x) + 4095) & ~4095)
+#define ALIGN(x, y) (((x) + (y-1)) & ~(y-1))
 
 #define KERNEL_VIRT_BASE 0xFFFFFFFF80000000
 
@@ -31,11 +32,11 @@ void* memmove(void* dest, const void* src, unsigned long n);
 //Ember2819
 void* memset(void* dest, int val, unsigned long n);
 //helper functions to allocate memory
-static block* create_block(unsigned long size);
+static block* create_block(unsigned long size, size_t alignment);
 
 void kalloc_init(uint64_t start, uint64_t size);
 void* kmalloc(unsigned long size);
-void* kmalloc_4m(unsigned long size);
+void* kmalloc_align(unsigned long size, size_t alignment);
 
 void dump_heap();
 
