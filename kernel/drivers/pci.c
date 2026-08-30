@@ -304,7 +304,6 @@ static void pci_filter(struct pci_dev *dev) {
                     if (((struct UHCIDevice*)USBDevices[USBDevices_Count].data)->framelist) { // if the framelist in null, the uhci initialization failed
                         GetUHCIDeviceDescriptor(((struct UHCIDevice*)USBDevices[USBDevices_Count].data));
                         SetUHCIDeviceAddress((struct UHCIDevice*)USBDevices[USBDevices_Count].data, USBDevices_Count + 1);
-                        // struct usb_string_descriptor* supported_langs = GetUHCIString(((struct UHCIDevice*)USBDevices[USBDevices_Count].data), 0, 0);
                         USBDevices_Count++;
                     } else {
                         USBDevices[USBDevices_Count] = (struct USBDevice){0};

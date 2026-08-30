@@ -813,7 +813,6 @@ static void cmd_show_usb_info(uint8_t color) {
             product = GetUHCIString(((struct UHCIDevice*)USBDevices[i].data), ((struct UHCIDevice*)USBDevices[i].data)->device_descriptor->iProduct, ((uint16_t*)supported_langs->string)[0]);
         if (((struct UHCIDevice*)USBDevices[i].data)->device_descriptor->iManufacter) {
             manufacter = GetUHCIString(((struct UHCIDevice*)USBDevices[i].data), ((struct UHCIDevice*)USBDevices[i].data)->device_descriptor->iManufacter, ((uint16_t*)supported_langs->string)[0]);
-            printf("%x\n", manufacter);
         }
 
         if (product) {
