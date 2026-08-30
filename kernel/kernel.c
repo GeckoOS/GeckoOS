@@ -5,6 +5,7 @@
 #include "drivers/tables/isr.h"
 #include <drivers/pit.h>
 #include "drivers/uhci.h"
+#include "drivers/usb.h"
 #include "mem.h"
 #include "ports.h"
 #include "terminal/printf.h"

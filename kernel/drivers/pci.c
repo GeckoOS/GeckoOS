@@ -300,8 +300,15 @@ static void pci_filter(struct pci_dev *dev) {
                     #endif
                     USBDevices[USBDevices_Count] = uhci_init((struct PCIDevice){bus, slot, fn});
 
-                    if (((struct UHCIDevice*)USBDevices[USBDevices_Count].data)->framelist) // if the framelist in null, the uhci initialization failed
-                        GetUHCIDescriptor(((struct UHCIDevice*)USBDevices[USBDevices_Count++].data));
+                    ((struct UHCIDevice*)USBDevices[USBDevices_Count].data)->address = 0;
+                    if (((struct UHCIDevice*)USBDevices[USBDevices_Count].data)->framelist) { // if the framelist in null, the uhci initialization failed
+                        GetUHCIDeviceDescriptor(((struct UHCIDevice*)USBDevices[USBDevices_Count].data));
+                        SetUHCIDeviceAddress((struct UHCIDevice*)USBDevices[USBDevices_Count].data, USBDevices_Count + 1);
+                        // struct usb_string_descriptor* supported_langs = GetUHCIString(((struct UHCIDevice*)USBDevices[USBDevices_Count].data), 0, 0);
+                        USBDevices_Count++;
+                    } else {
+                        USBDevices[USBDevices_Count] = (struct USBDevice){0};
+                    }
                     break;
                 case 0x10: // OHCI
                     #ifdef DEBUG

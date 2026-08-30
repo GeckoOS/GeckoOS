@@ -10,7 +10,7 @@ CC_FLAGS = -target x86_64-elf -march=x86-64 -m64 -MMD -MP \
            -ffreestanding -nostdlib -fno-builtin -fno-stack-protector \
            -mno-red-zone -mcmodel=kernel \
            -mno-sse -mno-sse2 -mno-avx \
-           -g -c $(addprefix -I,$(include_folder)) -DDEBUG
+           -g -c $(addprefix -I,$(include_folder)) # -DDEBUG
 LD_FLAGS = -m elf_x86_64
 
 SOURCES := $(shell find ./kernel -name "*.c" -o -name "*.cpp" -o -name "*.s")

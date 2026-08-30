@@ -10,6 +10,10 @@
 extern void irq_common_stub();
 #define MAX_IRQS 223
 
+/*
+    I think the IRQ is causing a general protection fault at boot, but it only happens sometimes
+*/
+
 extern void (*irq_stub_table[MAX_IRQS])(void);
 //TODO:remeber this are numbered 32->0 and so on wen dealing with vectors
 //!so the index means the irq not the idt number note for me

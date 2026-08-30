@@ -1,3 +1,4 @@
+#include "drivers/pit.h"
 #include "ports.h"
 #include <drivers/tables/irq.h>
 #include <stdint.h>
@@ -30,7 +31,7 @@ void start_pit_timer(uint32_t frequency) {
 void pit_timer_wait_s(uint64_t ticks) {
     unsigned long eticks;
 
-    eticks = pit_timer + ticks;
+    eticks = pit_timer + (ticks * PITHZ);
     while(pit_timer < eticks) HALT();
 }
 void pit_timer_wait_ms(uint32_t ms) {

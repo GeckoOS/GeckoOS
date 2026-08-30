@@ -77,7 +77,8 @@ struct UHCIDevice {
     struct BasicUSBHeader header;
     FrameEntry* framelist;
     bool speed; // 1 = Low speed
-    char* device_descriptor;
+    uint8_t address;
+    struct usb_device_descriptor* device_descriptor;
     struct UHCIQueueHead* qhpool;
     struct UHCITransferDescriptor* tdpool;
 };
@@ -86,4 +87,8 @@ struct USBDevice uhci_init(struct PCIDevice device);
 
 uint16_t ReadUHCIRegisterW(struct UHCIDevice controller, uint8_t reg);
 uint32_t ReadUHCIRegisterL(struct UHCIDevice controller, uint8_t reg);
-void GetUHCIDescriptor(struct UHCIDevice* controller);
+
+void GetUHCIDescriptor(struct UHCIDevice* controller, struct usb_setup_packet setup, void* buffer, bool wait);
+void GetUHCIDeviceDescriptor(struct UHCIDevice* controller);
+void SetUHCIDeviceAddress(struct UHCIDevice* controller, uint8_t address);
+struct usb_string_descriptor* GetUHCIString(struct UHCIDevice* controller, uint8_t index, uint16_t langid);
