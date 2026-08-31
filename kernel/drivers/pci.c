@@ -1,5 +1,6 @@
 #include "drivers/uhci.h"
 #include "drivers/usb.h"
+#include "drivers/vga.h"
 #include "terminal/printf.h"
 #include <drivers/pci.h>
 #include <drivers/e1000.h>
@@ -300,10 +301,25 @@ static void pci_filter(struct pci_dev *dev) {
                     #endif
                     USBDevices[USBDevices_Count] = uhci_init((struct PCIDevice){bus, slot, fn});
 
-                    ((struct UHCIDevice*)USBDevices[USBDevices_Count].data)->address = 0;
-                    if (((struct UHCIDevice*)USBDevices[USBDevices_Count].data)->framelist) { // if the framelist in null, the uhci initialization failed
-                        GetUHCIDeviceDescriptor(((struct UHCIDevice*)USBDevices[USBDevices_Count].data));
-                        SetUHCIDeviceAddress((struct UHCIDevice*)USBDevices[USBDevices_Count].data, USBDevices_Count + 1);
+                    USBDevices[USBDevices_Count].data->device_address = 0;
+                    if (USBDevices[USBDevices_Count].data) { // if the data is null, the uhci initialization failed
+                        if (!GetUSBDescriptor(&USBDevices[USBDevices_Count], (struct usb_setup_packet){
+                            .requesttype = 0x80,
+                            .request = REQUEST_GET_DESCRIPTOR,
+                            .value = DESCRIPTOR_TYPE_DEVICE << 8,
+                            .index = 0,
+                            .lenght = sizeof(struct usb_device_descriptor) - 1
+                        }, &USBDevices[USBDevices_Count].data->device_descriptor)) {
+                            // If the fucking UHCI Device failed to respond
+                            set_printf_color(VGA_COLOR_RED);
+                                printf("[%02x:%02x.%d] UHCI Controller failed to initialize\n",
+                                    bus, slot, fn);
+                            set_printf_color(VGA_COLOR_WHITE);
+                            break;
+                        }
+                        SetUSBAddress(&USBDevices[USBDevices_Count], USBDevices_Count + 1);
+                        
+                        USBDevices[USBDevices_Count].data->is_hid = IsHID(USBDevices[USBDevices_Count]);
                         USBDevices_Count++;
                     } else {
                         USBDevices[USBDevices_Count] = (struct USBDevice){0};

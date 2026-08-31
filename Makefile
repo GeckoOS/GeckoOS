@@ -85,7 +85,9 @@ run-uhci: gecko.iso fat32.img
 	  -netdev user,id=net0 \
 	  -device e1000,netdev=net0 \
 	  -monitor stdio \
-	  -device piix3-usb-uhci,id=uhci -device usb-mouse,bus=uhci.0
+	  -device piix3-usb-uhci,id=uhci \
+	  -device usb-mouse,bus=uhci.0,id=mouse \
+	  -device usb-tablet,bus=uhci.0,id=keyboard
 
 run-ohci: gecko.iso fat32.img
 	qemu-system-x86_64 \

@@ -796,56 +796,53 @@ static void cmd_show_usb(uint8_t color) {
     }
     // printf("%x\n", ((struct UHCIDevice*)USBDevices[0].data)->framelist[0]);
 }
+
 static void cmd_show_usb_info(uint8_t color) {
-    // Shows info about every USB that is supported
+    // Shows info about every connected USB that is supported
     
     printf("\n");
     for (int i = 0; i < USBDevices_Count; i++) {
         printf("%s Controller (%02X:%02X.%x)\n", USBTypesTable[USBDevices[i].type], USBDevices[i].data->device.bus, USBDevices[i].data->device.slot, USBDevices[i].data->device.func);
 
-        struct usb_string_descriptor* supported_langs = GetUHCIString(((struct UHCIDevice*)USBDevices[i].data), 0, 0);
+        struct usb_string_descriptor string;
+        GetUSBStringIndex(USBDevices[i], &string, 0, 0);
 
-        struct usb_string_descriptor* manufacter = NULL;
-        struct usb_string_descriptor* product = NULL;
+        uint16_t default_code = 0x0409;
+        bool found = false;
+        for (int y = 0; y < (string.header.bLength - 2) / sizeof(uint16_t); y++)
+            if (string.string[y] == default_code) found = true;
+        if (!found) default_code = string.string[(string.header.bLength - 2) / 2];
 
-        // pit_timer_wait_s(3);
-        if (((struct UHCIDevice*)USBDevices[i].data)->device_descriptor->iProduct)
-            product = GetUHCIString(((struct UHCIDevice*)USBDevices[i].data), ((struct UHCIDevice*)USBDevices[i].data)->device_descriptor->iProduct, ((uint16_t*)supported_langs->string)[0]);
-        if (((struct UHCIDevice*)USBDevices[i].data)->device_descriptor->iManufacter) {
-            manufacter = GetUHCIString(((struct UHCIDevice*)USBDevices[i].data), ((struct UHCIDevice*)USBDevices[i].data)->device_descriptor->iManufacter, ((uint16_t*)supported_langs->string)[0]);
-        }
+        struct usb_string_descriptor manufacter;
+        struct usb_string_descriptor product;
 
-        if (product) {
-            printf("  USB Product: ");
-            for (int i = 0; i < product->blength - 2; i += 2)
-                printf("%c", product->string[i]);
-            printf("\n");
-            kfree(product);
-        }
-        if (manufacter) {
-            printf("  USB Manufacter: ");
-            for (int i = 0; i < manufacter->blength - 2; i += 2)
-                printf("%c", manufacter->string[i]);
-            printf("\n");
-            kfree(manufacter);
-        }
+        if (USBDevices[i].data->device_descriptor.iProduct) GetUSBStringIndex(USBDevices[i], &product, USBDevices[i].data->device_descriptor.iProduct, default_code);
+        if (USBDevices[i].data->device_descriptor.iManufacter) GetUSBStringIndex(USBDevices[i], &manufacter, USBDevices[i].data->device_descriptor.iManufacter, default_code);
 
-        printf("USB Descriptor dumped:\n");
-        for (int y = 0; y < sizeof(struct usb_device_descriptor) ; y++)
-            printf("%X ", ((uint8_t*)((struct UHCIDevice*)USBDevices[i].data)->device_descriptor)[y]);
         printf("\n");
         printf("USB Descriptor parsed:\n");
-        printf("  USB Class code: 0x%x\n", ((struct UHCIDevice*)USBDevices[i].data)->device_descriptor->bDeviceclass);
-        printf("  USB SubClass code: 0x%x\n", ((struct UHCIDevice*)USBDevices[i].data)->device_descriptor->bSubdeviceclass);
-        printf("  USB Device Protocol: 0x%x\n", ((struct UHCIDevice*)USBDevices[i].data)->device_descriptor->bDeviceprotocol);
-        printf("  USB VendorID: %d\n", ((struct UHCIDevice*)USBDevices[i].data)->device_descriptor->idVendor);
-        printf("  USB ProductID: %d\n", ((struct UHCIDevice*)USBDevices[i].data)->device_descriptor->idProduct);
-        printf("  USB Possible configurations: %d\n", ((struct UHCIDevice*)USBDevices[i].data)->device_descriptor->bNumConfigurations);
-        printf("  USB Supported langs: %d\n", supported_langs->blength - 2);
-        printf("  USB Max packet size: %d\n", ((struct UHCIDevice*)USBDevices[i].data)->device_descriptor->bMaxpacketsize);
-        for (int y = 0; y < (supported_langs->blength - 2) / sizeof(uint16_t); y++)
-            printf("    USB Supported lang: 0x%x\n", ((uint16_t*)supported_langs->string)[y]);
-
+        if (product.header.bLength - 2) {
+            printf("  USB Product: ");
+            for (int y = 0; y < (product.header.bLength - 2) / 2; y++)
+                printf("%c", product.string[y]);
+            printf("\n");
+        }
+        if (manufacter.header.bLength - 2) {
+            printf("  USB Manufacter: ");
+            for (int y = 0; y < (manufacter.header.bLength - 2) / 2; y++)
+                printf("%c", manufacter.string[y]);
+            printf("\n");
+        }
+        printf("  USB Class code: 0x%x\n", USBDevices[i].data->device_descriptor.bDeviceclass);
+        printf("  USB SubClass code: 0x%x\n", USBDevices[i].data->device_descriptor.bSubdeviceclass);
+        printf("  USB Device Protocol: 0x%x\n", USBDevices[i].data->device_descriptor.bDeviceprotocol);
+        printf("  USB VendorID: %d\n", USBDevices[i].data->device_descriptor.idVendor);
+        printf("  USB ProductID: %d\n", USBDevices[i].data->device_descriptor.idProduct);
+        printf("  USB Possible configurations: %d\n", USBDevices[i].data->device_descriptor.bNumConfigurations);
+        printf("  USB Max packet size: %d\n", USBDevices[i].data->device_descriptor.bMaxpacketsize);
+        printf("  USB Supported langs: %d\n", (string.header.bLength - 2) / 2);
+        for (int y = 0; y < (string.header.bLength - 2) / sizeof(uint16_t); y++)
+            printf("    USB Supported lang: 0x%04x\n", ((uint16_t*)string.string)[y]);
     }
 }
 
