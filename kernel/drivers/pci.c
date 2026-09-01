@@ -299,30 +299,11 @@ static void pci_filter(struct pci_dev *dev) {
                         printf("  [%02x:%02x.%d] UHCI Controller\n",
                             bus, slot, fn);
                     #endif
-                    USBDevices[USBDevices_Count] = uhci_init((struct PCIDevice){bus, slot, fn});
+                    struct USBDevice* devices = uhci_init((struct PCIDevice){bus, slot, fn}); // Devices returned from the uhci controller
 
-                    USBDevices[USBDevices_Count].data->device_address = 0;
-                    if (USBDevices[USBDevices_Count].data) { // if the data is null, the uhci initialization failed
-                        if (!GetUSBDescriptor(&USBDevices[USBDevices_Count], (struct usb_setup_packet){
-                            .requesttype = 0x80,
-                            .request = REQUEST_GET_DESCRIPTOR,
-                            .value = DESCRIPTOR_TYPE_DEVICE << 8,
-                            .index = 0,
-                            .lenght = sizeof(struct usb_device_descriptor) - 1
-                        }, &USBDevices[USBDevices_Count].data->device_descriptor)) {
-                            // If the fucking UHCI Device failed to respond
-                            set_printf_color(VGA_COLOR_RED);
-                                printf("[%02x:%02x.%d] UHCI Controller failed to initialize\n",
-                                    bus, slot, fn);
-                            set_printf_color(VGA_COLOR_WHITE);
-                            break;
-                        }
-                        SetUSBAddress(&USBDevices[USBDevices_Count], USBDevices_Count + 1);
-                        
-                        USBDevices[USBDevices_Count].data->is_hid = IsHID(USBDevices[USBDevices_Count]);
-                        USBDevices_Count++;
-                    } else {
-                        USBDevices[USBDevices_Count] = (struct USBDevice){0};
+                    for (int i = 0; i < 2; i++) { // That array has the size of 2 usbdevices, because uhci have 2 ports
+                        if (!devices[i].data.controller) continue;
+                        USBDevices[USBDevices_Count++] = devices[i];
                     }
                     break;
                 case 0x10: // OHCI

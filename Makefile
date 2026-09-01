@@ -87,7 +87,10 @@ run-uhci: gecko.iso fat32.img
 	  -monitor stdio \
 	  -device piix3-usb-uhci,id=uhci \
 	  -device usb-mouse,bus=uhci.0,id=mouse \
-	  -device usb-tablet,bus=uhci.0,id=keyboard
+	  -device usb-tablet,bus=uhci.0,id=keyboard \
+	  -device piix3-usb-uhci,id=uhci2 \
+	  -device usb-mouse,bus=uhci2.0,id=mouse2 \
+	  -device usb-tablet,bus=uhci2.0,id=keyboard2
 
 run-ohci: gecko.iso fat32.img
 	qemu-system-x86_64 \

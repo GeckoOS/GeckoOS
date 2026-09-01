@@ -93,19 +93,23 @@ struct usb_configuration_descriptor {
 } __attribute__((packed));
 
 struct BasicUSBHeader {
-    struct PCIDevice device;
     struct usb_device_descriptor device_descriptor;
     bool is_hid;
     uint8_t device_address;
-    uint16_t ioport;
+    bool lowspeed;
+    void* controller;
 };
 
 struct USBDevice {
     uint8_t type;
-    struct BasicUSBHeader* data;
+    struct BasicUSBHeader data;
     bool (*SendPacket)(struct BasicUSBHeader* data, struct usb_setup_packet setup_packet, void* buffer, bool two /* Two or three packets */);
     int irq;
 };
+
+/*
+A UHCI Controller can have 2 usbs max, so 
+*/
 
 extern struct USBDevice USBDevices[16];
 extern uint8_t USBDevices_Count;
@@ -120,5 +124,4 @@ static const char* USBTypesTable[] = {
 
 bool IsHID(struct USBDevice device);
 bool GetUSBDescriptor(struct USBDevice* device, struct usb_setup_packet packet, void* buffer);
-void SetUSBAddress(struct USBDevice* device, uint8_t to);
 void GetUSBStringIndex(struct USBDevice device, struct usb_string_descriptor* string, uint8_t index, uint16_t langid);

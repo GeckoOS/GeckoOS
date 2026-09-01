@@ -6,7 +6,7 @@ struct USBDevice USBDevices[16];
 uint8_t USBDevices_Count = 0;
 
 bool IsHID(struct USBDevice device) {
-    for (int i = 0; i < device.data->device_descriptor.bNumConfigurations; i++) {
+    for (int i = 0; i < device.data.device_descriptor.bNumConfigurations; i++) {
         struct usb_configuration_descriptor config;
         GetUSBDescriptor(&device, (struct usb_setup_packet){
             .requesttype = 0x80,
@@ -19,7 +19,7 @@ bool IsHID(struct USBDevice device) {
         printf("Configuration: %x\n", config.bMaxPower);
     }
 
-    if ((device.data->device_descriptor.bDeviceclass == 0) && (device.data->device_descriptor.bSubdeviceclass == 0)) {
+    if ((device.data.device_descriptor.bDeviceclass == 0) && (device.data.device_descriptor.bSubdeviceclass == 0)) {
         return false;
         GetUSBDescriptor(&device, (struct usb_setup_packet){
             .requesttype = 0x00,
@@ -31,20 +31,7 @@ bool IsHID(struct USBDevice device) {
     } return false;
 }
 
-bool GetUSBDescriptor(struct USBDevice* device, struct usb_setup_packet packet, void* buffer) { return device->SendPacket(device->data, packet, buffer, false); }
-
-void SetUSBAddress(struct USBDevice* device, uint8_t to) {
-    struct usb_setup_packet packet = {
-        .requesttype = 0x00,
-        .request = REQUEST_SET_ADDRESS,
-        .value = to,
-        .index = 0x00,
-        .lenght = 0x00
-    };
-
-    device->SendPacket(device->data, packet, 0, true);
-    device->data->device_address = to;
-}
+bool GetUSBDescriptor(struct USBDevice* device, struct usb_setup_packet packet, void* buffer) { return device->SendPacket(&device->data, packet, buffer, false); }
 
 void GetUSBStringIndex(struct USBDevice device, struct usb_string_descriptor* string, uint8_t index, uint16_t langid) {
     GetUSBDescriptor(&device, (struct usb_setup_packet){

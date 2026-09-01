@@ -74,14 +74,14 @@ struct UHCITransferDescriptor {
 } __attribute__((packed));
 
 struct UHCIDevice {
-    struct BasicUSBHeader header;
+    struct PCIDevice device;
     FrameEntry* framelist;
     struct UHCIQueueHead* qhpool;
     struct UHCITransferDescriptor* tdpool;
-    bool speed; // 1 = Low speed
+    uint16_t ioport;
 };
 
-struct USBDevice uhci_init(struct PCIDevice device);
+struct USBDevice* uhci_init(struct PCIDevice device);
 
 uint16_t ReadUHCIRegisterW(struct UHCIDevice controller, uint8_t reg);
 uint32_t ReadUHCIRegisterL(struct UHCIDevice controller, uint8_t reg);
