@@ -115,7 +115,7 @@ struct USBDevice* uhci_init(struct PCIDevice device) {
         uint8_t reg = PORTSC1 + (i * 2);
 
         uint16_t port = ReadUHCIRegisterW(*controller, reg);
-        if (port & 1) {
+        if (port & 1 && port != 0xFFFF) {
             // Enable reset
             uint16_t cmd = (port & ~((1 << 1) | (1 << 3))) | (1 << 9);
             SetUHCIRegisterW(*controller, reg, cmd);
@@ -137,6 +137,7 @@ struct USBDevice* uhci_init(struct PCIDevice device) {
                 set_printf_color(VGA_COLOR_LIGHT_RED);
                     printf("Failed to enable UHCI Controller's port %d\n", i + 1);
                 set_printf_color(VGA_COLOR_WHITE);
+                continue;
             }
 
             devices[i].data.lowspeed = ReadUHCIRegisterW(*controller, reg) & (1 << 8);
@@ -144,7 +145,6 @@ struct USBDevice* uhci_init(struct PCIDevice device) {
             devices[i].data.device_address = 0;
             devices[i].data.controller = controller;
 
-            printf("%d\n", i);
             if (!SendUHCIPacket(&devices[i].data, (struct usb_setup_packet){
                     .requesttype = 0x80,
                     .request = REQUEST_GET_DESCRIPTOR,

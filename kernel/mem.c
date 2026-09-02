@@ -71,55 +71,44 @@ void kalloc_init(uint64_t start, uint64_t size) {
 
 // Divide the free_list_head into smaller blocks with the wanted size
 static block *create_block(unsigned long size, size_t alignment) {
-    if (((uint64_t)free_list_head + sizeof(block) + size) > (uint64_t)heap_end) return NULL;
-    if (!free_list_head) {
-        printf("You should initialize the fucking heap\n");
+    if (!heap_ptr) {
+        printf("You should initialize the heap\n");
         return NULL;
     }
 
-    block* curl = heap_ptr;
-    while (curl) {
-        size = (ALIGN((uint64_t)curl, alignment) - (uint64_t)curl) + size;
-        if (curl->free && curl->size >= size) {
-            if (!curl->next) {
-                free_list_head = (block*)((BLOCK_BUFFER(curl)) + size);
-                free_list_head->free = true;
-                free_list_head->size = ((uint64_t)heap_end - (uint64_t)free_list_head) - sizeof(block);
-                free_list_head->next = NULL;
+    size_t needed = ALIGN(size + sizeof(block), alignment);
 
-                curl->next = free_list_head;
+    block *curl = heap_ptr;
+
+    while (curl) {
+        if (curl->free && curl->size >= needed) {
+            size_t leftover = curl->size - needed;
+
+            if (leftover >= sizeof(block) + 16) {
+                block *new_free = (block *)(BLOCK_BUFFER(curl) + needed - sizeof(block));
+
+                new_free->free = true;
+                new_free->size = leftover;
+                new_free->next = curl->next;
+
+                curl->next = new_free;
+                curl->size = needed;
             }
 
             curl->free = false;
-            curl->size = size;
-
             return curl;
         }
-        // If the next block is free and the size of this block plus the next are the more than the wanted size, mix them and return it
-        if (curl->free && curl->next) {
-            if (curl->next->free) {
-                if ((curl->size + curl->next->size) >= size) {
-                    curl->next = curl->next->next;
-                    if (!curl->next) {
-                        curl->next = (block*)(BLOCK_BUFFER(curl) + size);
-                        free_list_head = curl->next;
 
-                        curl->next->free = true;
-                        curl->size = ((uint64_t)heap_end - (uint64_t)free_list_head) - sizeof(block);
-                        curl->next->next = NULL;
-                    }
-
-                    curl->size = size;
-                    curl->free = false;
-
-                    return curl;
-                }
-            }
+        if (curl->free && curl->next && curl->next->free) {
+            curl->size += curl->next->size;
+            curl->next = curl->next->next;
+            continue;
         }
+
         curl = curl->next;
     }
 
-    return NULL;
+    return NULL;   // out of memory
 }
 // tehnically we should not occupy more than needed
 // allocates memory on the heap(i hope idk where the pointer above leads)
@@ -152,7 +141,7 @@ void dump_heap() {
 
         curl = curl->next;
     }
-    printf("Free memory: %dMb\n", free_list_head->size / 1048576);
+    // printf("Free memory: %dMb\n", free_list_head->size / 1048576);
 }
 
 // frees the block allocated at ptr by seeting the free = 1

@@ -305,6 +305,7 @@ static void pci_filter(struct pci_dev *dev) {
                         if (!devices[i].data.controller) continue;
                         USBDevices[USBDevices_Count++] = devices[i];
                     }
+                    printf("\n");
                     break;
                 case 0x10: // OHCI
                     #ifdef DEBUG
