@@ -1,13 +1,14 @@
 #include "drivers/uhci.h"
 #include "drivers/usb.h"
 #include "drivers/vga.h"
-#include "terminal/printf.h"
+#include "drivers/hid/keyboard.h"
 #include <drivers/pci.h>
 #include <drivers/e1000.h>
 #include <mem.h>
 #include <ports.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <terminal/printf.h>
 
 #define PCI_CFG_ADDR 0xCF8
 #define PCI_CFG_DATA 0xCFC
@@ -304,6 +305,13 @@ static void pci_filter(struct pci_dev *dev) {
                     for (int i = 0; i < 2; i++) { // That array has the size of 2 usbdevices, because uhci have 2 ports
                         if (!devices[i].data.controller) continue;
                         USBDevices[USBDevices_Count++] = devices[i];
+
+                        if (devices[i].data.is_hid) {
+                            #ifdef DEBUG
+                                printf("USB Device %d is HID\n", USBDevices_Count);
+                            #endif
+                            SetProtocol(devices[i], REPORT_PROTOCOL);
+                        }
                     }
                     printf("\n");
                     break;

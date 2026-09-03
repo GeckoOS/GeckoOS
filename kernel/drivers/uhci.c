@@ -5,7 +5,6 @@
 #include "drivers/uhci.h"
 #include "drivers/pci.h"
 #include "drivers/pit.h"
-#include "drivers/tables/irq.h"
 #include "drivers/tables/isr.h"
 #include "drivers/usb.h"
 #include "gk/gk.h"
@@ -50,6 +49,14 @@ uint32_t GetQueueHeadEntry(uint32_t entry, bool framedisable, bool type) {
         (framedisable << 0) |
         (type << 1);
 }
+static void SetTDOnIndex(struct UHCIDevice* uhci, int index, struct UHCITransferDescriptor td) {
+    if (!uhci) return;
+    uhci->tdpool[index] = td;
+}
+static void SetQHOnIndex(struct UHCIDevice* uhci, int index, struct UHCIQueueHead qh) {
+    if (!uhci) return;
+    uhci->qhpool[index] = qh;
+}
 
 struct USBDevice* uhci_init(struct PCIDevice device) {
     IOBar bar4 = PCIGetIOBar(device, 4);
@@ -58,6 +65,7 @@ struct USBDevice* uhci_init(struct PCIDevice device) {
     controller->framelist = (FrameEntry*)ALIGN((uint64_t)kmalloc_align(1024 * sizeof(FrameEntry), 4096), 4096);
     controller->tdpool = (struct UHCITransferDescriptor*)ALIGN((uint64_t)kmalloc_align(32 * sizeof(struct UHCITransferDescriptor), 16), 16);
     controller->qhpool = (struct UHCIQueueHead*)ALIGN((uint64_t)kmalloc_align(16 * sizeof(struct UHCIQueueHead), 16), 16);
+    controller->device = device;
     memset(controller->framelist, 0, 1024 * sizeof(FrameEntry));
 
     if (!bar4) {
@@ -143,8 +151,9 @@ struct USBDevice* uhci_init(struct PCIDevice device) {
             devices[i].data.lowspeed = ReadUHCIRegisterW(*controller, reg) & (1 << 8);
             devices[i].type = UHCICONTROLLER;
             devices[i].data.device_address = 0;
-            devices[i].data.controller = controller;
+            devices[i].data.controller = (struct PCIDevice*)controller;
 
+            memset(&devices[i].data.device_descriptor, 0, sizeof(devices[i].data.device_descriptor));
             if (!SendUHCIPacket(&devices[i].data, (struct usb_setup_packet){
                     .requesttype = 0x80,
                     .request = REQUEST_GET_DESCRIPTOR,
@@ -169,8 +178,8 @@ struct USBDevice* uhci_init(struct PCIDevice device) {
                 }
 
             devices[i].data.device_address = i + 1;
-            devices[i].data.is_hid = IsHID(devices[i]);
             devices[i].SendPacket = SendUHCIPacket;
+            // devices[i].data.is_hid = IsHID(&devices[i]);
 
             // Set every usb to its own device address, and split them into differents USB devices from the same controller
         }
@@ -220,40 +229,69 @@ err:
     }
 #endif
 
-static bool GetUHCIDescriptor(struct BasicUSBHeader* uhci, struct usb_setup_packet setup, void* buffer, bool wait /* Waits for the packets to be readed */, bool twice) {
+static bool GetUHCIDescriptor(struct BasicUSBHeader* uhci, struct usb_setup_packet setup, void* buffer, bool wait /* Waits for all of the packets to be readed */, bool no_response) {
     struct UHCIDevice* controller = (struct UHCIDevice*)uhci->controller;
+    int packets = 1;
 
-    // TD 0
-    controller->tdpool[0].buffer = (uint32_t)&setup;
-    controller->tdpool[0].next = ((uint32_t)(&controller->tdpool[1]) & ~0xF) | (1 << 2);
-    controller->tdpool[0].packet_header = (HEADER_TYPE_SETUP & 0xFF) | (uhci->device_address << 8) | ((0x7 & 0x7ff) << 21);
-    controller->tdpool[0].status = 0 | (1 << 23) | (uhci->lowspeed << 26) | (3 << 27);
+    SetTDOnIndex(controller, 0, (struct UHCITransferDescriptor){
+        .buffer = (uint32_t)&setup,
+        .next = ((uint32_t)(&controller->tdpool[1]) & ~0xF) | (1 << 2),
+        .packet_header = (HEADER_TYPE_SETUP & 0xFF) | (uhci->device_address << 8) | ((0x7 & 0x7ff) << 21),
+        .status = (1 << 23) | (uhci->lowspeed << 26) | (3 << 27)
+    }); // Setup packet
 
-    // TD 1
-    controller->tdpool[1].buffer = (uint32_t)buffer;
-    controller->tdpool[1].next = twice ? 1 : ((uint32_t)(&controller->tdpool[2]) & ~0xF) | (1 << 2);
-    controller->tdpool[1].packet_header = (HEADER_TYPE_IN & 0xFF) | (uhci->device_address << 8) | (1 << 19) | (((setup.lenght - 1) & 0x7ff) << 21);
-    controller->tdpool[1].status = (1 << 23) | (uhci->lowspeed << 26) | (3 << 27) | (1 << 29);
+    // Put more data packets if the setup packet wants more than the max limit
+    if ((setup.lenght > uhci->device_descriptor.bMaxpacketsize) && uhci->device_descriptor.bMaxpacketsize) {
+        int max = (int)(setup.lenght / uhci->device_descriptor.bMaxpacketsize) + 1;
+        int n = 0;
 
-    // TD 2
-    controller->tdpool[2].buffer = 0;
-    controller->tdpool[2].next = 1;
-    controller->tdpool[2].packet_header = (HEADER_TYPE_OUT & 0xFF) | (uhci->device_address << 8) | (1 << 19) | ((0 & 0x7ff) << 21);
-    controller->tdpool[2].status = (1 << 23) | (uhci->lowspeed << 26) | (3 << 27);
+        for (int i = 1; i <= max; i++) {
+            uint32_t size = (i == max ? (setup.lenght - (uhci->device_descriptor.bMaxpacketsize * (i - 1))) : uhci->device_descriptor.bMaxpacketsize);
 
-    controller->qhpool[0].vertical_pointer = GetQueueHeadEntry((uint32_t)&controller->tdpool[0], 0, FRAME_TYPE_TD);
-    controller->qhpool[0].horizontal_pointer = GetQueueHeadEntry(0, 1, 0);
+            SetTDOnIndex(controller, packets, (struct UHCITransferDescriptor){
+                .buffer = (uint32_t)buffer + n,
+                .next = ((uint32_t)(&controller->tdpool[packets + 1]) & ~0xF) | (1 << 2),
+                .packet_header = (HEADER_TYPE_IN & 0xFF) | (uhci->device_address << 8) | ((bool)(i % 2) << 19) | (((size - 1) & 0x7ff) << 21),
+                .status = (1 << 23) | (uhci->lowspeed << 26) | (3 << 27) | (1 << 29)
+            }); // Data packet
+            n += size;
+            packets++;
+        }
+    } else {
+        SetTDOnIndex(controller, 1, (struct UHCITransferDescriptor){
+            .buffer = (uint32_t)buffer,
+            .next = no_response ? 1 : ((uint32_t)(&controller->tdpool[packets + 1]) & ~0xF) | (1 << 2),
+            .packet_header = (HEADER_TYPE_IN & 0xFF) | (uhci->device_address << 8) | (1 << 19) | (((setup.lenght - 1) & 0x7ff) << 21),
+            .status = (1 << 23) | (uhci->lowspeed << 26) | (3 << 27) | (1 << 29)
+        }); // Data packet
+        packets++;
+    }
+
+    if (!no_response) { // For requests like "set_address" that are just two packets (SETUP and STATUS)
+        SetTDOnIndex(controller, packets, (struct UHCITransferDescriptor){
+            .buffer = 0,
+            .next = 1,
+            .packet_header = (HEADER_TYPE_OUT & 0xFF) | (uhci->device_address << 8) | (1 << 19) | ((0 & 0x7ff) << 21),
+            .status = (1 << 23) | (uhci->lowspeed << 26) | (3 << 27)
+        }); // Status packet
+        packets++;
+    }
+
+    SetQHOnIndex(controller, 0, (struct UHCIQueueHead){
+        .vertical_pointer = GetQueueHeadEntry((uint32_t)&controller->tdpool[0], 0, FRAME_TYPE_TD),
+        .horizontal_pointer = 1
+    });
     SetFrameEntry(controller, 0, (uint32_t)&controller->qhpool[0], 0, FRAME_TYPE_QD);
 
     if (wait)
-        for (int i = 0; i < 3 - twice; i++) {
+        for (int i = 0; i < packets; i++) {
             #ifdef DEBUG
                 printf(".");
             #endif
             while (controller->tdpool[i].status & (1 << 23)) PAUSE(); // Wait for the TD active bit to turn off
 
             // Check for errors
-            if (controller->tdpool[i].status & ((1 << 22) | (1 << 21) | (1 << 20) | (1 << 19) | (1 << 18) | (1 << 17))) {
+            if (controller->tdpool[i].status & 0x7E0000) {
                 #ifdef DEBUG
                     DumpTd(controller->tdpool[i]);
                     printf("TD%d Failed!\n", i + 1);

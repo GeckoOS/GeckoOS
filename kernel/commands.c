@@ -802,7 +802,7 @@ static void cmd_show_usb_info(uint8_t color) {
     
     printf("\n");
     for (int i = 0; i < USBDevices_Count; i++) {
-        // printf("%s Controller (%02X:%02X.%x)\n", USBTypesTable[USBDevices[i].type], USBDevices[i].data.device.bus, USBDevices[i].data.device.slot, USBDevices[i].data.device.func);
+        printf("%s USB (%02X:%02X.%d)\n", USBTypesTable[USBDevices[i].type], ((struct PCIDevice*)USBDevices[i].data.controller)->bus, ((struct PCIDevice*)USBDevices[i].data.controller)->slot, ((struct PCIDevice*)USBDevices[i].data.controller)->func);
 
         struct usb_string_descriptor string;
         GetUSBStringIndex(USBDevices[i], &string, 0, 0);
@@ -815,6 +815,8 @@ static void cmd_show_usb_info(uint8_t color) {
 
         struct usb_string_descriptor manufacter;
         struct usb_string_descriptor product;
+        struct usb_configuration_descriptor config;
+        struct usb_string_descriptor config_string;
 
         if (USBDevices[i].data.device_descriptor.iProduct) GetUSBStringIndex(USBDevices[i], &product, USBDevices[i].data.device_descriptor.iProduct, default_code);
         if (USBDevices[i].data.device_descriptor.iManufacter) GetUSBStringIndex(USBDevices[i], &manufacter, USBDevices[i].data.device_descriptor.iManufacter, default_code);
@@ -843,6 +845,11 @@ static void cmd_show_usb_info(uint8_t color) {
         printf("  USB Supported langs: %d\n", (string.header.bLength - 2) / 2);
         for (int y = 0; y < (string.header.bLength - 2) / sizeof(uint16_t); y++)
             printf("    USB Supported lang: 0x%04x\n", ((uint16_t*)string.string)[y]);
+        printf("USB Configuration #0:\n");
+        printf("  USB Configuration name: ");
+        for (int y = 0; y < (config_string.header.bLength - 2) / 2; y++)
+             printf("%c", config_string.string[y]); printf("\n");
+        printf("  USB Configuration interfaces num: %d\n", config.bNumInterfaces);
     }
 }
 

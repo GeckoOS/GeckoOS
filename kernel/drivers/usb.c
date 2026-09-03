@@ -1,3 +1,4 @@
+#include "mem.h"
 #include <drivers/usb.h>
 #include <terminal/printf.h>
 #include <stdint.h>
@@ -5,29 +6,39 @@
 struct USBDevice USBDevices[16];
 uint8_t USBDevices_Count = 0;
 
-bool IsHID(struct USBDevice device) {
-    for (int i = 0; i < device.data.device_descriptor.bNumConfigurations; i++) {
-        struct usb_configuration_descriptor config;
-        GetUSBDescriptor(&device, (struct usb_setup_packet){
-            .requesttype = 0x80,
-            .request = REQUEST_GET_INTERFACE,
-            .value = DESCRIPTOR_TYPE_STRING << 8,
-            .index = 0x00,
-            .lenght = sizeof(config)
-        }, &config);
+bool IsHID(struct USBDevice* device) {
+    printf(" P%d\n", device->data.device_address);
+    device->SendPacket(&device->data, (struct usb_setup_packet){
+        .requesttype = 0x80,
+        .request = REQUEST_GET_DESCRIPTOR,
+        .value = DESCRIPTOR_TYPE_CONFIGURATION << 8,
+        .index = 0,
+        .lenght = (sizeof(device->data.config_descriptor.header) + sizeof(device->data.config_descriptor.wTotalLength))
+    }, &device->data.config_descriptor.header, false);
+    printf(" P%d\n", device->data.device_address);
 
-        printf("Configuration: %x\n", config.bMaxPower);
+    char* buffer = kmalloc(device->data.config_descriptor.wTotalLength);
+    printf(" P%d\n", device->data.config_descriptor.wTotalLength);
+    device->SendPacket(&device->data, (struct usb_setup_packet){
+        .requesttype = 0x80,
+        .request = REQUEST_GET_DESCRIPTOR,
+        .value = DESCRIPTOR_TYPE_CONFIGURATION << 8,
+        .index = 0,
+        .lenght = device->data.config_descriptor.wTotalLength
+    }, buffer, false);
+    for(;;);
+
+    int i = sizeof(device->data.config_descriptor);
+    while (buffer[i]) {
+        const struct usb_descriptor_head* header = (struct usb_descriptor_head*)&buffer[i];
+
+        printf("type: %d\n", header->bDescriptortype);
+
+        break;
     }
 
-    if ((device.data.device_descriptor.bDeviceclass == 0) && (device.data.device_descriptor.bSubdeviceclass == 0)) {
-        return false;
-        GetUSBDescriptor(&device, (struct usb_setup_packet){
-            .requesttype = 0x00,
-            .request = REQUEST_GET_INTERFACE,
-            .value = 0,
-            .index = 0x00,
-            .lenght = 0x00
-        }, NULL);
+    if ((device->data.device_descriptor.bDeviceclass == 0) && (device->data.device_descriptor.bSubdeviceclass == 0)) {
+        return true;
     } return false;
 }
 

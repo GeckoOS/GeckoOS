@@ -79,6 +79,7 @@ struct UHCIDevice {
     struct UHCIQueueHead* qhpool;
     struct UHCITransferDescriptor* tdpool;
     uint16_t ioport;
+    uint16_t max_packet_size;
 };
 
 struct USBDevice* uhci_init(struct PCIDevice device);

@@ -28,6 +28,7 @@
 #include <stdint.h>
 #include <terminal/terminal.h>
 #include <fs/fs.h>
+#include <drivers/hid/keyboard.h>
 
 #define GECKO_VERSION "2.2"
 
@@ -139,6 +140,11 @@ void kmain() {
         if (fsmount(i)) break;
     } if (!fs)
         printc("The drives 1 - 4 don't have any disk attached (Or it failed when mounting the FAT32 filesystem)\n\n", VGA_COLOR_RED);
+
+    while (0) {
+        GetReport(USBDevices[0]);
+    }
+    // process_input("showusbs");
 
     while (1) {
         printc("gecko> ", PROMPT_COLOR);

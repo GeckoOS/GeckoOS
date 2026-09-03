@@ -22,6 +22,13 @@
 #define REQUEST_SET_INTERFACE 11
 #define REQUEST_SYNC_FRAME 12
 
+// HID requests
+#define REQUEST_SET_PROTOCOL 0x0B
+#define REQUEST_GET_REPORT 1
+// HID request types
+#define REQUEST_TYPE_SET_PROTOCOL 0x21
+#define REQUEST_TYPE_GET_REPORT 0xA1
+
 // Standards descriptors
 #define DESCRIPTOR_TYPE_DEVICE 1
 #define DESCRIPTOR_TYPE_CONFIGURATION 2
@@ -94,17 +101,17 @@ struct usb_configuration_descriptor {
 
 struct BasicUSBHeader {
     struct usb_device_descriptor device_descriptor;
+    struct usb_configuration_descriptor config_descriptor; // The first configuration
     bool is_hid;
     uint8_t device_address;
-    bool lowspeed;
-    void* controller;
+    bool lowspeed; // Should be inside the controller pointer, but i dont want to do allat
+    struct PCIDevice* controller;
 };
 
 struct USBDevice {
     uint8_t type;
     struct BasicUSBHeader data;
-    bool (*SendPacket)(struct BasicUSBHeader* data, struct usb_setup_packet setup_packet, void* buffer, bool two /* Two or three packets */);
-    int irq;
+    bool (*SendPacket)(struct BasicUSBHeader* data, struct usb_setup_packet setup_packet, void* buffer, bool no_response /* If the packet has no response */);
 };
 
 /*
@@ -122,6 +129,6 @@ static const char* USBTypesTable[] = {
     "xHCI"
 };
 
-bool IsHID(struct USBDevice device);
+bool IsHID(struct USBDevice* device);
 bool GetUSBDescriptor(struct USBDevice* device, struct usb_setup_packet packet, void* buffer);
 void GetUSBStringIndex(struct USBDevice device, struct usb_string_descriptor* string, uint8_t index, uint16_t langid);
