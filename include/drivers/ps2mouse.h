@@ -18,11 +18,6 @@
 
 #define MOUSE_ACKNOWLEDGE 0xFA
 
-#define PS2_CMD_PORT 0x64 // read/write PS/2 command register
-#define MOUSE_DATA_PORT                                                        \
-    0x60 // PS/2 data port register see
-         // https://wiki.osdev.org/%228042%22_PS/2_Controller
-
 typedef struct {
     uint8_t left_button : 1;
     uint8_t right_button : 1;

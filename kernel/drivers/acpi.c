@@ -10,6 +10,9 @@
 #include <drivers/tables/irq.h>
 #include <drivers/pit.h>
 
+struct madt_iso isos[32];
+int isos_num = 0;
+
 // Iterate trough multiboot info structure tags and search for rsdp v1 or v2
 void *find_rsdp()
 {
@@ -161,8 +164,6 @@ static struct acpi_madt *find_madt_via_rsdt(uint32_t rsdt_phys)
     return madt;
 }
 
-struct madt_iso pit_timer_iso;
-
 // Parse MADT entries
 static int parse_madt_entries(struct acpi_madt *madt)
 {
@@ -212,10 +213,9 @@ static int parse_madt_entries(struct acpi_madt *madt)
 
          case 2: { // ISO (Interrupt Source Override)
             struct madt_iso *iso = (struct madt_iso *)ptr;
-            // printf("ISO: bus=%u, irq=%u, gsi=%u, flags=0x%x\n",
-            //    iso->bus,iso->irq, iso->gsi, iso->flags);
-            if (iso->irq == 0) // Where the PIT timer goes
-                pit_timer_iso = *iso;
+            printf("ISO: bus=%u, irq=%u, gsi=%u, flags=0x%x\n",
+                 iso->bus,iso->irq, iso->gsi, iso->flags);
+            isos[isos_num++] = *(struct madt_iso *)ptr;
             break;
         }
 /*         case 3: {

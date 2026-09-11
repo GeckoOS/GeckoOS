@@ -124,5 +124,8 @@ extern uintptr_t acpi_lapic_base;
 extern uintptr_t acpi_ioapic_base;
 int acpi_init();
 
+extern struct madt_iso isos[32];
+extern int isos_num;
+
 void acpi_irq_handler(registers_t* regs);
 int shutdown();

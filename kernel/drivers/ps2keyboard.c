@@ -2,10 +2,9 @@
 
 // PS/2 keyboard driver
 
-#include "drivers/apic/ioapic.h"
-#include "drivers/apic/lapic.h"
-#include "terminal/printf.h"
-#include <drivers/keyboard.h>
+#include "drivers/input.h"
+#include "drivers/ps2.h"
+#include <drivers/ps2keyboard.h>
 #include <drivers/tables/irq.h>
 #include <drivers/vga.h>
 #include <layouts/kb_layouts.h>
@@ -13,26 +12,10 @@
 #include <terminal/terminal.h>
 // Layout map by scancodes.
 // Add layout via set_layout()
-static char ScASCII[128];
-static char ScASCII_UPPER[128];
 // a bool to listen to the input from the handler
 volatile int kb_ready = 0;
 // what was the last key pressED
-volatile scancode_t last_scancode;
 // Key State (what control keys are pressed currently)
-KeyState KEYSTATE;
-
-unsigned char scancode_to_ascii(scancode_t scancode)
-{
-    bool shift = KEYSTATE.ShiftL ||
-                 KEYSTATE.ShiftR; // Is either Left Shift or Right Shift pressed
-    // If shift is pressed and CapsLock isn't, and vice versa
-    if (KEYSTATE.CapsLock ^ shift)
-        return ScASCII_UPPER[(uint8_t)scancode];
-    else {
-        return ScASCII[(uint8_t)scancode];
-    }
-}
 
 void process_keypress(scancode_t sc)
 {
@@ -71,21 +54,18 @@ scancode_t ps2_kb_wfi()
 
     // Ember2819: arrow key history
     if (scancode == 0xE0) {
-        while (!(inb(KEYBOARD_STATUS_PORT) & 1)) {
+        while (!(inb(PS2_CMD_PORT) & 1)) {
             asm volatile("hlt");
         }
-        scancode_t ext = inb(KEYBOARD_DATA_PORT);
-        if (ext & 0x80)
-            return 0; // ignore extended key releases
-        if (ext == 0x48)
-            return KEY_UP;
-        if (ext == 0x50)
-            return KEY_DOWN;
-        // ember2819: left/right arrows for editor
-        if (ext == 0x4B)
-            return KEY_LEFT;
-        if (ext == 0x4D)
-            return KEY_RIGHT;
+        scancode_t ext = inb(PS2_DATA_PORT);
+        if (ext & 0x80) return 0; // ignore extended key releases
+        switch (ext) {
+            case 0x48: return KEY_UP;
+            case 0x50: return KEY_DOWN;
+            case 0x4B: return KEY_LEFT;
+            case 0x4D: return KEY_RIGHT;
+            default: break;
+        }
         return 0;
     }
 
@@ -104,24 +84,15 @@ void ps2_kb_init()
 
 // you can make someone's day better just leaving those easter eggs :)
 
-void set_layout(KeyboardLayout layout)
-{
-    unsigned char *lowercase = layout.lower;
-    unsigned char *uppercase = layout.upper;
-
-    for (int j = 0; j < 128; j++)
-        ScASCII[j] = lowercase[j];
-    for (int j = 0; j < 128; j++)
-        ScASCII_UPPER[j] = uppercase[j];
-}
-
 void keyboard_handler(registers_t *r)
 {
     // listen to the key port
-    uint8_t scancode = inb(KEYBOARD_DATA_PORT);
+    uint8_t scancode = inb(PS2_DATA_PORT);
 
     last_scancode = scancode;
     kb_ready      = 1;
+
+    set_layout(PS2_LAYOUTS[0]);
 }
 // installing the handler of the pic
 void keyboard_install()

@@ -306,11 +306,21 @@ static void pci_filter(struct pci_dev *dev) {
                         if (!devices[i].data.controller) continue;
                         USBDevices[USBDevices_Count++] = devices[i];
 
-                        if (devices[i].data.is_hid) {
-                            #ifdef DEBUG
-                                printf("USB Device %d is HID\n", USBDevices_Count);
-                            #endif
-                            SetProtocol(devices[i], REPORT_PROTOCOL);
+                        for (int x = 0; x < USBDevices[USBDevices_Count - 1].data.device_descriptor.bNumConfigurations + 1; x++)
+                            GetUSBConfiguration(&USBDevices[USBDevices_Count - 1], x);
+                        USBDevices[USBDevices_Count - 1].data.is_hid = IsHID(&USBDevices[USBDevices_Count - 1]);
+                        if (USBDevices[USBDevices_Count - 1].data.is_hid) {
+                            SetProtocol(USBDevices[USBDevices_Count - 1], BOOT_PROTOCOL); // The device will explode if that protocol isn't supported
+                            
+                            // Detect if the device is a mouse or a keyboard by its protocol value
+                            #define KEYBOARD_PROTOCOL 1
+                            #define MOUSE_PROTOCOL 2
+
+                            if (USBDevices[USBDevices_Count - 1].data.interface[0].bInterfaceProtocol == KEYBOARD_PROTOCOL) {
+                                HIDKeyboardInit(&USBDevices[USBDevices_Count - 1]);
+                            } else if (USBDevices[USBDevices_Count - 1].data.interface[0].bInterfaceProtocol == MOUSE_PROTOCOL) {
+                                // Nothing...
+                            }
                         }
                     }
                     printf("\n");

@@ -1,7 +1,8 @@
 
 #include "drivers/apic/lapic.h"
-#include "drivers/mouse.h"
+#include "drivers/ps2mouse.h"
 #include "drivers/apic/ioapic.h"
+#include "drivers/ps2.h"
 #include "drivers/tables/irq.h"
 #include "drivers/vga.h"
 #include "ports.h"
@@ -49,7 +50,7 @@ uint8_t mouse_write(uint8_t data)
 
     mouse_wait(true);
     // finally write data to port
-    outb(MOUSE_DATA_PORT, data);
+    outb(PS2_DATA_PORT, data);
     ack = mouse_read();
 
     return ack;
@@ -58,7 +59,7 @@ uint8_t mouse_write(uint8_t data)
 uint8_t mouse_read()
 {
     mouse_wait(false);
-    return inb(MOUSE_DATA_PORT);
+    return inb(PS2_DATA_PORT);
 }
 
 void get_mouse_status(char status_byte, MOUSE_STATUS *status)
@@ -174,7 +175,7 @@ void set_mouse_rate(uint8_t rate)
     outb(PS2_CMD_PORT, MOUSE_CMD_CMD);
     uint8_t ack = mouse_read();
 
-    outb(MOUSE_DATA_PORT, MOUSE_CMD_SAMPLE_RATE);
+    outb(PS2_DATA_PORT, MOUSE_CMD_SAMPLE_RATE);
     status = mouse_read();
     if (status != MOUSE_ACKNOWLEDGE) {
         printf("error: failed to send mouse sample rate command\n");
@@ -184,7 +185,7 @@ void set_mouse_rate(uint8_t rate)
     outb(PS2_CMD_PORT, MOUSE_CMD_CMD);
     ack = mouse_read();
 
-    outb(MOUSE_DATA_PORT, rate);
+    outb(PS2_DATA_PORT, rate);
     status = mouse_read();
     if (status != MOUSE_ACKNOWLEDGE) {
         printf("error: failed to send mouse sample rate data\n");
@@ -203,6 +204,7 @@ void mouse_init()
     printc("Initializing mouse...\n", VGA_COLOR_LIGHT_GREY);
 
     // enable mouse device
+    // the ps2_init covers this
     mouse_wait(true);
     outb(PS2_CMD_PORT, MOUSE_CMD_CMD);
     ack = mouse_read();
@@ -274,12 +276,12 @@ void mouse_init()
     outb(PS2_CMD_PORT, 0x20);
     mouse_wait(false);
     // get and set second bit
-    status = (inb(MOUSE_DATA_PORT) | 2);
+    status = (inb(PS2_DATA_PORT) | 2);
     // write status to port
     mouse_wait(true);
-    outb(PS2_CMD_PORT, MOUSE_DATA_PORT);
+    outb(PS2_CMD_PORT, PS2_DATA_PORT);
     mouse_wait(true);
-    outb(MOUSE_DATA_PORT, status);
+    outb(PS2_DATA_PORT, status);
 
     // set mouse to use default settings
     mouse_write(MOUSE_CMD_SET_DEFAULTS);

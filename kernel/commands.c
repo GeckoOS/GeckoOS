@@ -1,6 +1,5 @@
 #include "drivers/apic/lapic.h"
 #include "drivers/pit.h"
-#include "drivers/uhci.h"
 #include "drivers/usb.h"
 #include "exe.h"
 #include "process/process.h"
@@ -8,7 +7,7 @@
 #include <commands.h>
 #include <bootoptions.h>
 #include <colors.h>
-#include <drivers/keyboard.h>
+#include <drivers/ps2keyboard.h>
 #include <drivers/serial.h>
 #include <elf.h>
 #include <layouts/kb_layouts.h>
@@ -203,17 +202,17 @@ static void cmd_contributors(uint8_t color) {
 }
 
 static void cmd_setkeyswe(uint8_t color) {
-    set_layout(LAYOUTS[1]);
+    set_layout(PS2_LAYOUTS[1]);
     printc("\nKeyboard layout set to Swedish QWERTY\n", color);
 }
 
 static void cmd_setkeyus(uint8_t color) {
-    set_layout(LAYOUTS[0]);
+    set_layout(PS2_LAYOUTS[0]);
     printc("\nKeyboard layout set to US QWERTY\n", color);
 }
 
 static void cmd_setkeyuk(uint8_t color) {
-    set_layout(LAYOUTS[2]);
+    set_layout(PS2_LAYOUTS[2]);
     printc("\nKeyboard layout set to UK QWERTY\n", color);
 }
 
@@ -821,6 +820,15 @@ static void cmd_show_usb_info(uint8_t color) {
         if (USBDevices[i].data.device_descriptor.iProduct) GetUSBStringIndex(USBDevices[i], &product, USBDevices[i].data.device_descriptor.iProduct, default_code);
         if (USBDevices[i].data.device_descriptor.iManufacter) GetUSBStringIndex(USBDevices[i], &manufacter, USBDevices[i].data.device_descriptor.iManufacter, default_code);
 
+        GetUSBDescriptor(&USBDevices[i], (struct usb_setup_packet){
+            .requesttype = 0x80,
+            .request = REQUEST_GET_DESCRIPTOR,
+            .value = DESCRIPTOR_TYPE_CONFIGURATION << 8,
+            .index = 0,
+            .lenght = sizeof(config)
+        }, &config);
+        if (config.iConfiguration) GetUSBStringIndex(USBDevices[i], &config_string, config.iConfiguration, default_code);
+
         printf("\n");
         printf("USB Descriptor parsed:\n");
         if (product.header.bLength - 2) {
@@ -850,6 +858,7 @@ static void cmd_show_usb_info(uint8_t color) {
         for (int y = 0; y < (config_string.header.bLength - 2) / 2; y++)
              printf("%c", config_string.string[y]); printf("\n");
         printf("  USB Configuration interfaces num: %d\n", config.bNumInterfaces);
+        printf("  USB Configuration max power: %dmA\n", config.bMaxPower / 2);
     }
 }
 

@@ -1,3 +1,4 @@
+#include "drivers/acpi.h"
 #include "drivers/apic/ioapic.h"
 #include "drivers/apic/lapic.h"
 #include <drivers/tables/idt.h>
@@ -20,6 +21,14 @@ extern void (*irq_stub_table[MAX_IRQS])(void);
 isr_t irq_routines_table[MAX_IRQS];
 
 void irq_install_handler(int irq, isr_t handler, int flags) {
+    for (int i = 0; i < isos_num; i++) {
+        const struct madt_iso iso = isos[i];
+        if (iso.irq == irq) {
+            irq = iso.gsi;
+            flags = iso.flags;
+        }
+    }
+
     irq_routines_table[irq] = handler;
     if (cpu_has_apic()) ioapic_redirect_irq(irq, irq + 32, flags);
 }

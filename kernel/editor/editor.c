@@ -2,7 +2,7 @@
 #include <editor/editor.h>
 #include <terminal/terminal.h>
 #include <drivers/vga.h>
-#include <drivers/keyboard.h>
+#include <drivers/ps2keyboard.h>
 #include <fs/fat32.h>
 #include <fs/fs.h>
 #include <stdint.h>

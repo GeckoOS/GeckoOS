@@ -1,7 +1,7 @@
 #include "drivers/apic/ioapic.h"
 #include "drivers/acpi.h"
 #include "drivers/apic/lapic.h"
-#include "drivers/keyboard.h"
+#include "drivers/ps2keyboard.h"
 #include "drivers/vga.h"
 #include "mem/paging.h"
 #include "ports.h"

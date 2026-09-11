@@ -1,13 +1,13 @@
 #include "mem.h"
 #include <drivers/usb.h>
+#include <stdbool.h>
 #include <terminal/printf.h>
 #include <stdint.h>
 
 struct USBDevice USBDevices[16];
 uint8_t USBDevices_Count = 0;
 
-bool IsHID(struct USBDevice* device) {
-    printf(" P%d\n", device->data.device_address);
+void GetUSBConfiguration(struct USBDevice* device, uint8_t configuration_index) { // Put the configuration descriptor and all of its interfaces and endpoints inside the usb device struct
     device->SendPacket(&device->data, (struct usb_setup_packet){
         .requesttype = 0x80,
         .request = REQUEST_GET_DESCRIPTOR,
@@ -15,31 +15,36 @@ bool IsHID(struct USBDevice* device) {
         .index = 0,
         .lenght = (sizeof(device->data.config_descriptor.header) + sizeof(device->data.config_descriptor.wTotalLength))
     }, &device->data.config_descriptor.header, false);
-    printf(" P%d\n", device->data.device_address);
 
     char* buffer = kmalloc(device->data.config_descriptor.wTotalLength);
-    printf(" P%d\n", device->data.config_descriptor.wTotalLength);
     device->SendPacket(&device->data, (struct usb_setup_packet){
         .requesttype = 0x80,
         .request = REQUEST_GET_DESCRIPTOR,
-        .value = DESCRIPTOR_TYPE_CONFIGURATION << 8,
+        .value = (DESCRIPTOR_TYPE_CONFIGURATION << 8) | configuration_index,
         .index = 0,
         .lenght = device->data.config_descriptor.wTotalLength
     }, buffer, false);
-    for(;;);
-
-    int i = sizeof(device->data.config_descriptor);
-    while (buffer[i]) {
+    
+    for (int i = sizeof(struct usb_configuration_descriptor); i < device->data.config_descriptor.wTotalLength;) {
         const struct usb_descriptor_head* header = (struct usb_descriptor_head*)&buffer[i];
 
-        printf("type: %d\n", header->bDescriptortype);
+        if (header->bDescriptortype == DESCRIPTOR_TYPE_INTERFACE) {
+            const struct usb_interface_descriptor* interface = (struct usb_interface_descriptor*)header;
+            device->data.interface[device->data.interfaces_num++] = *interface;
+        } else if (header->bDescriptortype == DESCRIPTOR_TYPE_ENDPOINT) {
+            const struct usb_endpoint_descriptor* endpoint = (struct usb_endpoint_descriptor*)header;
+            device->data.endpoint[device->data.endpoints_num++] = *endpoint;
+        }
 
-        break;
+        i += header->bLength;
     }
+    kfree(buffer);
+}
 
-    if ((device->data.device_descriptor.bDeviceclass == 0) && (device->data.device_descriptor.bSubdeviceclass == 0)) {
-        return true;
-    } return false;
+bool IsHID(struct USBDevice* device) {
+    if ((device->data.device_descriptor.bDeviceclass != 0) || (device->data.device_descriptor.bSubdeviceclass != 0)) return false;
+    if (device->data.interface[0].bInterfaceClass && device->data.interface[0].bInterfaceSubClass) return true;
+    return false;
 }
 
 bool GetUSBDescriptor(struct USBDevice* device, struct usb_setup_packet packet, void* buffer) { return device->SendPacket(&device->data, packet, buffer, false); }

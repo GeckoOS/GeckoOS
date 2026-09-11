@@ -1,11 +1,10 @@
 #include "boot/multiboot2.h"
 #include "drivers/acpi.h"
 #include "drivers/apic/lapic.h"
-#include "drivers/mouse.h"
+#include "drivers/ps2.h"
 #include "drivers/tables/isr.h"
 #include <drivers/pit.h>
-#include "drivers/uhci.h"
-#include "drivers/usb.h"
+#include "drivers/input.h"
 #include "mem.h"
 #include "ports.h"
 #include "terminal/printf.h"
@@ -13,7 +12,6 @@
 #include <commands.h>
 #include <drivers/apic/ioapic.h>
 #include <drivers/drives.h>
-#include <drivers/keyboard.h>
 #include <drivers/pci.h>
 #include <drivers/serial.h>
 #include <drivers/tables/idt.h>
@@ -29,6 +27,7 @@
 #include <terminal/terminal.h>
 #include <fs/fs.h>
 #include <drivers/hid/keyboard.h>
+// I think all of these includes are useless, they are there because someone (me) forgot to delete them after finishing them
 
 #define GECKO_VERSION "2.2"
 
@@ -61,6 +60,7 @@ void _entry(uint64_t mbi) {
         for (;;)
             asm volatile("hlt");
     }
+    register_interrupt_handler(INT_PAGEFAULT, page_fault);
     outb(0x22, 0x70);
     outb(0x23, 0x01);
 
@@ -80,6 +80,8 @@ void _entry(uint64_t mbi) {
     printc("Installing IRQ... \n", VGA_COLOR_LIGHT_GREY);
     irq_install();
 
+    // printf("%x %x\n", test_ps2_port(0), test_ps2_port(1));
+
     // pit_timer_wait(100);
     if (has_apic) {
         asm volatile("cli"); // cutting interrupts while we set em up
@@ -97,16 +99,13 @@ void _entry(uint64_t mbi) {
         lapic_timer_start();
         lapic_start_cores();
     } else {
-        // Use PIT as the timer
-        // printc("Using PIT timer (50Hz)... \n", VGA_COLOR_LIGHT_GREY);
-        // start_pit_timer(50);
+        start_pit_timer(PITHZ);
     }
     //================= hardware init===================//
     printc("Enabling hardware devices...\n", VGA_COLOR_LIGHT_GREY);
     // basic stuff
     keyboard_install();
-    set_layout(LAYOUTS[0]);
-    mouse_init();
+    set_layout(HID_LAYOUTS[0]);
     terminal_init();
     register_interrupt_handler(0x6, ud_exception_handler);
     // pci init
@@ -117,6 +116,9 @@ void _entry(uint64_t mbi) {
     net_init();
     arp_init();
     drives_init();
+
+    // ps2
+    if (ps2_init() & (1 << 1)) mouse_init();
 
     #ifndef DEBUG
         terminal_clear(TERM_COLOR);
@@ -140,11 +142,6 @@ void kmain() {
         if (fsmount(i)) break;
     } if (!fs)
         printc("The drives 1 - 4 don't have any disk attached (Or it failed when mounting the FAT32 filesystem)\n\n", VGA_COLOR_RED);
-
-    while (0) {
-        GetReport(USBDevices[0]);
-    }
-    // process_input("showusbs");
 
     while (1) {
         printc("gecko> ", PROMPT_COLOR);

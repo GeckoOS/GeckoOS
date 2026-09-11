@@ -8,4 +8,4 @@ void pit_timer_wait_ms(uint32_t ms);
 
 extern volatile uint64_t pit_timer;
 
-#define PITHZ 100
+#define PITHZ 1000

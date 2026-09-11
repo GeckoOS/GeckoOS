@@ -1,12 +1,14 @@
+#include "drivers/hid/keyboard.h"
 #include "terminal/printf.h"
 #include <drivers/framebuffer.h>
-#include <drivers/keyboard.h>
-#include <drivers/mouse.h>
+#include <drivers/ps2keyboard.h>
+#include <drivers/ps2mouse.h>
 #include <gk/gk.h>
 #include <mem.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <terminal/terminal.h>
+#include <drivers/input.h>
 
 extern uint64_t g_fb_addr;
 extern uint32_t g_fb_width;
@@ -276,7 +278,8 @@ void input(unsigned char *buff, size_t buffer_size, uint8_t color)
     unsigned char saved_input[512];
 
     while (true) {
-        scancode_t sc = ps2_kb_wfi();
+        scancode_t sc = hid_wfi();
+        // printf("aa %x\n", sc);
 
         if (sc & 0x80)
             continue;
@@ -329,7 +332,7 @@ void input(unsigned char *buff, size_t buffer_size, uint8_t color)
             continue;
         }
 
-        unsigned char ascii = scancode_to_ascii(sc);
+        unsigned char ascii = scancode_to_ascii(last_scancode);
 
         if (ascii == '\n')
             break;

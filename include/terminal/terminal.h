@@ -3,8 +3,8 @@
 #ifndef TERMINAL_H
 #define TERMINAL_H
 
-#include "drivers/mouse.h"
-#include <drivers/keyboard.h>
+#include "drivers/ps2mouse.h"
+#include <drivers/ps2keyboard.h>
 #include <drivers/vga.h>
 
 #define VGA_MEMORY ((uint16_t *)0xB8000)

@@ -51,7 +51,7 @@
 
 #define PRT_RWC     (PRT_CSC | PRT_PEDC)
 
-#define FRAME_TYPE_QD 1
+#define FRAME_TYPE_QH 1
 #define FRAME_TYPE_TD 0
 
 #define HEADER_TYPE_IN 0x69

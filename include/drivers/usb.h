@@ -99,19 +99,35 @@ struct usb_configuration_descriptor {
     uint8_t bMaxPower;
 } __attribute__((packed));
 
+// Endpoint descriptor struct
+struct usb_endpoint_descriptor {
+    struct usb_descriptor_head header;
+    uint8_t bEndpointAddress;
+    uint8_t bmAttributes;
+    uint16_t wMaxPacketSize;
+    uint8_t bInterval;
+} __attribute__((packed));
+
 struct BasicUSBHeader {
     struct usb_device_descriptor device_descriptor;
     struct usb_configuration_descriptor config_descriptor; // The first configuration
+    struct usb_interface_descriptor interface[16];
+    uint16_t interfaces_num;
+    struct usb_endpoint_descriptor endpoint[20];
+    uint16_t endpoints_num;
+    struct PCIDevice* controller;
     bool is_hid;
     uint8_t device_address;
     bool lowspeed; // Should be inside the controller pointer, but i dont want to do allat
-    struct PCIDevice* controller;
+    void* user_data; // Used by HID Devices and its data
 };
 
 struct USBDevice {
     uint8_t type;
     struct BasicUSBHeader data;
     bool (*SendPacket)(struct BasicUSBHeader* data, struct usb_setup_packet setup_packet, void* buffer, bool no_response /* If the packet has no response */);
+    void (*InitInterruptTranfers)(struct BasicUSBHeader* data);
+    void (*SetInterruptTransfer)(struct BasicUSBHeader* data, uint8_t every_ms, void* buffer, uint16_t size); // Note: every_ms is useless
 };
 
 /*
@@ -126,9 +142,11 @@ static const char* USBTypesTable[] = {
     "UHCI",
     "OHCI",
     "EHCI",
-    "xHCI"
+    "xHCI",
+    "PS2"
 };
 
 bool IsHID(struct USBDevice* device);
 bool GetUSBDescriptor(struct USBDevice* device, struct usb_setup_packet packet, void* buffer);
 void GetUSBStringIndex(struct USBDevice device, struct usb_string_descriptor* string, uint8_t index, uint16_t langid);
+void GetUSBConfiguration(struct USBDevice* device, uint8_t configuration_index);
