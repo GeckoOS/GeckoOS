@@ -45,6 +45,7 @@ scancode_t ps2_kb_wfi()
     // halts the process while kb is not ready hlt gets waken up by any
     // interrupt including the timer
     while (!kb_ready) {
+        if (actual_input != 0) return 0;
         asm volatile("hlt");
     }
     // sets ready to false
@@ -93,6 +94,7 @@ void keyboard_handler(registers_t *r)
     kb_ready      = 1;
 
     set_layout(PS2_LAYOUTS[0]);
+    actual_input = 0; // ps2 keyboard
 }
 // installing the handler of the pic
 void keyboard_install()

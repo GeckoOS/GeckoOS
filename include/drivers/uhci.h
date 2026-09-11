@@ -80,6 +80,8 @@ struct UHCIDevice {
     struct UHCITransferDescriptor* tdpool;
     uint16_t ioport;
     uint16_t max_packet_size;
+    uint8_t device_address;
+    bool lowspeed;
 };
 
 struct USBDevice* uhci_init(struct PCIDevice device);

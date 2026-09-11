@@ -1,6 +1,5 @@
 #include "drivers/hid/keyboard.h"
 #include "drivers/input.h"
-#include "drivers/pit.h"
 #include "drivers/ps2keyboard.h"
 #include "drivers/usb.h"
 #include "layouts/kb_layouts.h"
@@ -39,9 +38,10 @@ struct KeyboardReport* HIDKeyboardInit(struct USBDevice* usb) {
     memset(report, 0, sizeof(struct KeyboardReport));
 
     usb->InitInterruptTranfers(&usb->data);
-    usb->SetInterruptTransfer(&usb->data, usb->data.endpoint[0].bInterval, report, sizeof(*report));
+    usb->SetInterruptTransfer(&usb->data, INTERRUPT_TRANSFER_INTERVAL_8MS, report, sizeof(*report));
 
     usb->data.user_data = report;
+    // actual_input = 1; // set to hid output
 
     return report;
 }
@@ -63,6 +63,7 @@ void ManageKeyboardReport(struct USBDevice device) {
         if (!report->keypresses[i]) continue;
         else {
             set_layout(HID_LAYOUTS[0]);
+            actual_input = 1; // usb keyboard
             last_scancode = report->keypresses[i];
             hid_kb_ready = 1;
             break;
@@ -70,11 +71,10 @@ void ManageKeyboardReport(struct USBDevice device) {
     }
 }
 scancode_t hid_wfi() {
-    while (true) {
-        if (hid_kb_ready) {
-            hid_kb_ready = 0;
-            return last_scancode;
-        }
+    while (!hid_kb_ready) {
+        if (actual_input != 1) return 0;
         HALT();
-    } return 0;
+    }
+    hid_kb_ready = 0;
+    return last_scancode;
 }

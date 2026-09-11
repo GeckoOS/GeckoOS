@@ -308,8 +308,8 @@ static void pci_filter(struct pci_dev *dev) {
 
                         for (int x = 0; x < USBDevices[USBDevices_Count - 1].data.device_descriptor.bNumConfigurations + 1; x++)
                             GetUSBConfiguration(&USBDevices[USBDevices_Count - 1], x);
-                        USBDevices[USBDevices_Count - 1].data.is_hid = IsHID(&USBDevices[USBDevices_Count - 1]);
-                        if (USBDevices[USBDevices_Count - 1].data.is_hid) {
+                        USBDevices[USBDevices_Count - 1].is_hid = IsHID(&USBDevices[USBDevices_Count - 1]);
+                        if (USBDevices[USBDevices_Count - 1].is_hid) {
                             SetProtocol(USBDevices[USBDevices_Count - 1], BOOT_PROTOCOL); // The device will explode if that protocol isn't supported
                             
                             // Detect if the device is a mouse or a keyboard by its protocol value

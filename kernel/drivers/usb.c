@@ -13,27 +13,27 @@ void GetUSBConfiguration(struct USBDevice* device, uint8_t configuration_index) 
         .request = REQUEST_GET_DESCRIPTOR,
         .value = DESCRIPTOR_TYPE_CONFIGURATION << 8,
         .index = 0,
-        .lenght = (sizeof(device->data.config_descriptor.header) + sizeof(device->data.config_descriptor.wTotalLength))
-    }, &device->data.config_descriptor.header, false);
+        .lenght = (sizeof(device->data.config_descriptor[0].header) + sizeof(device->data.config_descriptor[0].wTotalLength))
+    }, &device->data.config_descriptor[0].header, false);
 
-    char* buffer = kmalloc(device->data.config_descriptor.wTotalLength);
+    char* buffer = kmalloc(device->data.config_descriptor[0].wTotalLength);
     device->SendPacket(&device->data, (struct usb_setup_packet){
         .requesttype = 0x80,
         .request = REQUEST_GET_DESCRIPTOR,
         .value = (DESCRIPTOR_TYPE_CONFIGURATION << 8) | configuration_index,
         .index = 0,
-        .lenght = device->data.config_descriptor.wTotalLength
+        .lenght = device->data.config_descriptor[0].wTotalLength
     }, buffer, false);
     
-    for (int i = sizeof(struct usb_configuration_descriptor); i < device->data.config_descriptor.wTotalLength;) {
+    for (int i = sizeof(struct usb_configuration_descriptor); i < device->data.config_descriptor[0].wTotalLength;) {
         const struct usb_descriptor_head* header = (struct usb_descriptor_head*)&buffer[i];
 
         if (header->bDescriptortype == DESCRIPTOR_TYPE_INTERFACE) {
             const struct usb_interface_descriptor* interface = (struct usb_interface_descriptor*)header;
-            device->data.interface[device->data.interfaces_num++] = *interface;
+            device->data.interface[device->data.interfaces_count++] = *interface;
         } else if (header->bDescriptortype == DESCRIPTOR_TYPE_ENDPOINT) {
             const struct usb_endpoint_descriptor* endpoint = (struct usb_endpoint_descriptor*)header;
-            device->data.endpoint[device->data.endpoints_num++] = *endpoint;
+            device->data.endpoint[device->data.endpoints_count++] = *endpoint;
         }
 
         i += header->bLength;

@@ -278,8 +278,7 @@ void input(unsigned char *buff, size_t buffer_size, uint8_t color)
     unsigned char saved_input[512];
 
     while (true) {
-        scancode_t sc = hid_wfi();
-        // printf("aa %x\n", sc);
+        scancode_t sc = get_scancode();
 
         if (sc & 0x80)
             continue;

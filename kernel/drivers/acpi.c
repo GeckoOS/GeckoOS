@@ -213,8 +213,8 @@ static int parse_madt_entries(struct acpi_madt *madt)
 
          case 2: { // ISO (Interrupt Source Override)
             struct madt_iso *iso = (struct madt_iso *)ptr;
-            printf("ISO: bus=%u, irq=%u, gsi=%u, flags=0x%x\n",
-                 iso->bus,iso->irq, iso->gsi, iso->flags);
+            // printf("ISO: bus=%u, irq=%u, gsi=%u, flags=0x%x\n",
+            //      iso->bus,iso->irq, iso->gsi, iso->flags);
             isos[isos_num++] = *(struct madt_iso *)ptr;
             break;
         }

@@ -1,4 +1,6 @@
 #include "drivers/apic/lapic.h"
+#include "drivers/hid/keyboard_scancode.h"
+#include "drivers/input.h"
 #include "drivers/pit.h"
 #include "drivers/usb.h"
 #include "exe.h"
@@ -160,12 +162,12 @@ static void cmd_help(uint8_t color) {
         }
 
         while (1) {
-            scancode_t sc = ps2_kb_wfi();
+            scancode_t sc = get_scancode();
             if (sc & 0x80) continue;
             if (sc == 0) continue;
-            if (sc == ENTER_SC) return;
+            if ((sc == ENTER_SC) || (sc == KEY_ENTER)) return;
             if (pages <= 1) return;   /* single page: any key exits */
-            if (sc == SPACE_SC) {
+            if ((sc == SPACE_SC) || (sc == KEY_SPACE)) {
                 page = (page + 1) % pages;
                 break;
             }
@@ -241,7 +243,7 @@ static void cmd_chars(uint8_t color) {
 
 static void cmd_sleep5(uint8_t color) {
     print("\nSleeping for 5 seconds...\n");
-    // sleep(5);
+    pit_timer_wait_s(5);
     print("Done!\n");
 }
 
@@ -251,8 +253,11 @@ static void cmd_reboot(uint8_t color) {
 }
 
 static void cmd_print_ticks(uint8_t color) {
-    print("\nTick: ");
+    print("\nLapic tick: ");
     print_int(lapic_timer_tick);
+    print("\n");
+    print("PIT tick: ");
+    print_int(pit_timer);
     print("\n");
 }
 
@@ -790,10 +795,8 @@ static void cmd_processes(uint8_t color) {
 
 static void cmd_show_usb(uint8_t color) {
     printf("\n");
-    for (int i = 0; i < USBDevices_Count; i++) {
-        // printf("UHCI Controller (%02X:%02X.%x)\n", USBDevices[i].data.device.bus, USBDevices[i].data.device.slot, USBDevices[i].data.device.func);
-    }
-    // printf("%x\n", ((struct UHCIDevice*)USBDevices[0].data)->framelist[0]);
+    for (int i = 0; i < USBDevices_Count; i++)
+        printf("%s USB (%02X:%02X.%x)\n", USBTypesTable[USBDevices[i].type], USBDevices[i].data.controller->bus, USBDevices[i].data.controller->slot, USBDevices[i].data.controller->func);
 }
 
 static void cmd_show_usb_info(uint8_t color) {

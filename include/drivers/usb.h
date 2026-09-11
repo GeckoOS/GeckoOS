@@ -110,24 +110,34 @@ struct usb_endpoint_descriptor {
 
 struct BasicUSBHeader {
     struct usb_device_descriptor device_descriptor;
-    struct usb_configuration_descriptor config_descriptor; // The first configuration
+
+    // Arrays
+    struct usb_configuration_descriptor config_descriptor[8];
+    uint8_t config_count;
     struct usb_interface_descriptor interface[16];
-    uint16_t interfaces_num;
+    uint8_t interfaces_count;
     struct usb_endpoint_descriptor endpoint[20];
-    uint16_t endpoints_num;
+    uint8_t endpoints_count;
+
     struct PCIDevice* controller;
-    bool is_hid;
-    uint8_t device_address;
-    bool lowspeed; // Should be inside the controller pointer, but i dont want to do allat
     void* user_data; // Used by HID Devices and its data
 };
+
+#define INTERRUPT_TRANSFER_INTERVAL_1MS 0
+#define INTERRUPT_TRANSFER_INTERVAL_2MS 2
+#define INTERRUPT_TRANSFER_INTERVAL_4MS 4
+#define INTERRUPT_TRANSFER_INTERVAL_8MS 6
+#define INTERRUPT_TRANSFER_INTERVAL_16MS 8
+#define INTERRUPT_TRANSFER_INTERVAL_32MS 10
 
 struct USBDevice {
     uint8_t type;
     struct BasicUSBHeader data;
+    bool is_hid;
+
     bool (*SendPacket)(struct BasicUSBHeader* data, struct usb_setup_packet setup_packet, void* buffer, bool no_response /* If the packet has no response */);
     void (*InitInterruptTranfers)(struct BasicUSBHeader* data);
-    void (*SetInterruptTransfer)(struct BasicUSBHeader* data, uint8_t every_ms, void* buffer, uint16_t size); // Note: every_ms is useless
+    void (*SetInterruptTransfer)(struct BasicUSBHeader* data, uint8_t interval, void* buffer, uint16_t size);
 };
 
 /*
