@@ -4,10 +4,10 @@
 #include "drivers/usb.h"
 #include "layouts/kb_layouts.h"
 #include "mem.h"
-#include "ports.h"
-#include <drivers/uhci.h>
+#include <drivers/interfaces/uhci.h>
 #include <stdint.h>
 #include <terminal/printf.h>
+#include <drivers/pit.h>
 
 // This is only the boot protocol, report protocol will be for later
 
@@ -34,20 +34,21 @@ void GetReport(struct USBDevice usb) {
 }
 
 struct KeyboardReport* HIDKeyboardInit(struct USBDevice* usb) {
-    struct KeyboardReport* report = kmalloc(sizeof(struct KeyboardReport));
-    memset(report, 0, sizeof(struct KeyboardReport));
+    if (!usb->data.user_data) {
+        usb->data.user_data = kmalloc(sizeof(struct KeyboardReport));
+        memset(usb->data.user_data, 0, sizeof(struct KeyboardReport));
+    }
 
     usb->InitInterruptTranfers(&usb->data);
-    usb->SetInterruptTransfer(&usb->data, INTERRUPT_TRANSFER_INTERVAL_8MS, report, sizeof(*report));
+    usb->SetInterruptTransfer(&usb->data, INTERRUPT_TRANSFER_INTERVAL_8MS, usb->data.user_data, sizeof(struct KeyboardReport));
 
-    usb->data.user_data = report;
     // actual_input = 1; // set to hid output
 
-    return report;
+    return usb->data.user_data;
 }
 
 // only one keyboard supported because of this
-bool hid_kb_ready = 0;
+bool hid_kbs_ready[16];
 
 void ManageKeyboardReport(struct USBDevice device) {
     struct KeyboardReport* report = device.data.user_data;
@@ -62,19 +63,31 @@ void ManageKeyboardReport(struct USBDevice device) {
     for (int i = 0; i < sizeof(report->keypresses); i++) {
         if (!report->keypresses[i]) continue;
         else {
+            #ifdef DEBUG
+                if (report->keypresses[i] <= 0x4) {
+                    switch (report->keypresses[i]) {
+                        case 0x1: printf("\nhid_kbd: phantom scancode\n");
+                        case 0x2: printf("\nhid_kbd: self-test failed\n");
+                        case 0x3: printf("\nhid_kbd: undefined error\n");
+                    }
+                }
+            #endif
+
             set_layout(HID_LAYOUTS[0]);
             actual_input = 1; // usb keyboard
+            hid_kbs_ready[device.index] = 1;
             last_scancode = report->keypresses[i];
-            hid_kb_ready = 1;
             break;
         }
     }
 }
 scancode_t hid_wfi() {
-    while (!hid_kb_ready) {
-        if (actual_input != 1) return 0;
-        HALT();
-    }
-    hid_kb_ready = 0;
-    return last_scancode;
+    for (int i = 0; i < 16; i++) {
+        if (hid_kbs_ready[i]) {
+            hid_kbs_ready[i] = 0;
+            return last_scancode;
+        }
+
+        pit_timer_wait_ms(5);
+    } return 0;
 }

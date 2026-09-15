@@ -1,4 +1,5 @@
 #include "drivers/apic/lapic.h"
+#include "drivers/hid/keyboard.h"
 #include "drivers/hid/keyboard_scancode.h"
 #include "drivers/input.h"
 #include "drivers/pit.h"
@@ -644,7 +645,6 @@ static uint32_t parse_ip(const char *str) {
     while (*str >= '0' && *str <= '9') { c = c * 10 + (*str - '0'); str++; }
     if (*str == '.') str++; i++;
     while (*str >= '0' && *str <= '9') { d = d * 10 + (*str - '0'); str++; }
-    (void)i;
     return IP(a, b, c, d);
 }
 
@@ -823,7 +823,7 @@ static void cmd_show_usb_info(uint8_t color) {
         if (USBDevices[i].data.device_descriptor.iProduct) GetUSBStringIndex(USBDevices[i], &product, USBDevices[i].data.device_descriptor.iProduct, default_code);
         if (USBDevices[i].data.device_descriptor.iManufacter) GetUSBStringIndex(USBDevices[i], &manufacter, USBDevices[i].data.device_descriptor.iManufacter, default_code);
 
-        GetUSBDescriptor(&USBDevices[i], (struct usb_setup_packet){
+        SendUSBPacket(&USBDevices[i], (struct usb_setup_packet){
             .requesttype = 0x80,
             .request = REQUEST_GET_DESCRIPTOR,
             .value = DESCRIPTOR_TYPE_CONFIGURATION << 8,
@@ -862,6 +862,8 @@ static void cmd_show_usb_info(uint8_t color) {
              printf("%c", config_string.string[y]); printf("\n");
         printf("  USB Configuration interfaces num: %d\n", config.bNumInterfaces);
         printf("  USB Configuration max power: %dmA\n", config.bMaxPower / 2);
+
+        HIDKeyboardInit(&USBDevices[i]); // TODO: Add compatibility to other type of devices
     }
 }
 

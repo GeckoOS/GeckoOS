@@ -1,4 +1,4 @@
-#include "drivers/uhci.h"
+#include <drivers/interfaces/uhci.h>
 #include "drivers/usb.h"
 #include "drivers/vga.h"
 #include "drivers/hid/keyboard.h"
@@ -304,10 +304,12 @@ static void pci_filter(struct pci_dev *dev) {
 
                     for (int i = 0; i < 2; i++) { // That array has the size of 2 usbdevices, because uhci have 2 ports
                         if (!devices[i].data.controller) continue;
+                        devices[i].index = USBDevices_Count;
                         USBDevices[USBDevices_Count++] = devices[i];
 
                         for (int x = 0; x < USBDevices[USBDevices_Count - 1].data.device_descriptor.bNumConfigurations + 1; x++)
                             GetUSBConfiguration(&USBDevices[USBDevices_Count - 1], x);
+                        
                         USBDevices[USBDevices_Count - 1].is_hid = IsHID(&USBDevices[USBDevices_Count - 1]);
                         if (USBDevices[USBDevices_Count - 1].is_hid) {
                             SetProtocol(USBDevices[USBDevices_Count - 1], BOOT_PROTOCOL); // The device will explode if that protocol isn't supported

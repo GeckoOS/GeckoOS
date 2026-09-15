@@ -2,7 +2,7 @@
 
 // damn like fr
 
-#include "drivers/uhci.h"
+#include <drivers/interfaces/uhci.h>
 #include "drivers/hid/keyboard.h"
 #include "drivers/pci.h"
 #include "drivers/pit.h"
@@ -34,7 +34,7 @@ uint32_t ReadUHCIRegisterL(struct UHCIDevice controller, uint8_t reg) {
 
 static bool SendUHCIPacket(struct BasicUSBHeader* header, struct usb_setup_packet setup_packet, void* buffer, bool twice);
 static void SetUHCIInterruptTranfers(struct BasicUSBHeader* uhci);
-static void SetUHCITransferAt(struct BasicUSBHeader* uhci, uint8_t ms, void* buffer, uint16_t size);
+static void SetUHCITransferAt(struct BasicUSBHeader* uhci, uint8_t interval, void* buffer, uint16_t size);
 
 uint32_t GetQueueHeadEntry(uint32_t entry, bool framedisable, bool type) {
     return (entry & ~0xF) |
@@ -51,7 +51,10 @@ void uhci_interrupt(registers_t* _) {
         uint16_t status = ReadUHCIRegisterW(*controller, 0x2);
         SetUHCIRegisterW(*controller, 0x2, status | 1);
 
-        if (status & 1) {
+        if ((status & 1) && (controller->tdpool[0].status & ~(1 << 23))) {
+            if ((controller->tdpool[0].packet_header & ((1 << 8)|(1 << 9)|(1 << 10)|(1 << 11)|(1 << 12)|(1 << 13)|(1 << 14)))) {
+                // printf("%d\n", (controller->tdpool[0].packet_header & ((1 << 8)|(1 << 9)|(1 << 10)|(1 << 11)|(1 << 12)|(1 << 13)|(1 << 14))));
+            }
             controller->qhpool[6].vertical_pointer = 1;
 
             // Now we parse what the controller told us
@@ -129,7 +132,7 @@ struct USBDevice* uhci_init(struct PCIDevice device) {
     // Enable it
     SetUHCIRegisterW(*controller, USBCMD, CMD_RS | CMD_MAXP);
     pit_timer_wait_ms(5);
-    
+
     if (ReadUHCIRegisterW(*controller, USBSTS) & STS_HCHALT) {
         printf("UHCI error when enabling it!");
         goto err;
@@ -177,6 +180,8 @@ struct USBDevice* uhci_init(struct PCIDevice device) {
             devices[i].data.controller = (struct PCIDevice*)controller;
             ((struct UHCIDevice*)devices[i].data.controller)->lowspeed = ReadUHCIRegisterW(*controller, reg) & (1 << 8);
             ((struct UHCIDevice*)devices[i].data.controller)->device_address = 0;
+            devices[i].data.controller_reserved = kmalloc(sizeof(uint8_t));
+            (*(uint8_t*)devices[i].data.controller_reserved) = 0;
             devices[i].type = UHCICONTROLLER;
 
             memset(&devices[i].data.device_descriptor, 0, sizeof(devices[i].data.device_descriptor));
@@ -198,8 +203,8 @@ struct USBDevice* uhci_init(struct PCIDevice device) {
                     .index = 0x00,
                     .lenght = 0x00
                 }, 0, true)) {
-                    devices[i].data.controller = NULL;
                     printf("UHCI Controller port %d: Failed to set address\n", i);
+                    devices[i].data.controller = NULL;
                     continue;
                 }
 
@@ -207,7 +212,9 @@ struct USBDevice* uhci_init(struct PCIDevice device) {
             devices[i].SendPacket = SendUHCIPacket;
             devices[i].InitInterruptTranfers = SetUHCIInterruptTranfers;
             devices[i].SetInterruptTransfer = SetUHCITransferAt;
-            // devices[i].data.is_hid = IsHID(&devices[i]);
+            (*(uint8_t*)devices[i].data.controller_reserved) = i + 1;
+
+            // printf("%d\n", (*(uint8_t*)devices[i].data.controller_reserved));
 
             // Set every usb to its own device address, and split them into differents USB devices from the same controller
         }
@@ -255,15 +262,15 @@ err:
     }
 #endif
 
-static bool GetUHCIDescriptor(struct BasicUSBHeader* uhci, struct usb_setup_packet setup, void* buffer, bool wait /* Waits for all of the packets to be readed */, bool no_response) {
+static bool SetUHCIControlTransfer(struct BasicUSBHeader* uhci, struct usb_setup_packet setup, void* buffer, bool wait /* Waits for all of the packets to be readed */, bool no_response) {
     struct UHCIDevice* controller = (struct UHCIDevice*)uhci->controller;
     int packets = 1;
 
     SetTDOnIndex(controller, 0, (struct UHCITransferDescriptor){
         .buffer = (uint32_t)&setup,
         .next = ((uint32_t)(&controller->tdpool[1]) & ~0xF) | (1 << 2),
-        .packet_header = (HEADER_TYPE_SETUP & 0xFF) | (((struct UHCIDevice*)uhci->controller)->device_address << 8) | ((0x7 & 0x7ff) << 21),
-        .status = (1 << 23) | (((struct UHCIDevice*)uhci->controller)->device_address << 26) | (3 << 27)
+        .packet_header = (HEADER_TYPE_SETUP & 0xFF) | ((*(uint8_t*)uhci->controller_reserved) << 8) | ((0x7 & 0x7ff) << 21),
+        .status = (1 << 23) | (((struct UHCIDevice*)uhci->controller)->lowspeed << 26) | (3 << 27)
     }); // Setup packet
 
     // Put more data packets if the setup packet wants more than the max limit
@@ -277,7 +284,7 @@ static bool GetUHCIDescriptor(struct BasicUSBHeader* uhci, struct usb_setup_pack
             SetTDOnIndex(controller, packets, (struct UHCITransferDescriptor){
                 .buffer = (uint32_t)buffer + n,
                 .next = ((uint32_t)(&controller->tdpool[packets + 1]) & ~0xF) | (1 << 2),
-                .packet_header = (HEADER_TYPE_IN & 0xFF) | (((struct UHCIDevice*)uhci->controller)->device_address << 8) | ((bool)(i % 2) << 19) | (((size - 1) & 0x7ff) << 21),
+                .packet_header = (HEADER_TYPE_IN & 0xFF) | ((*(uint8_t*)uhci->controller_reserved) << 8) | ((bool)(i % 2) << 19) | (((size - 1) & 0x7ff) << 21),
                 .status = (1 << 23) | (((struct UHCIDevice*)uhci->controller)->lowspeed << 26) | (3 << 27) | (1 << 29)
             }); // Data packet
             n += size;
@@ -287,8 +294,8 @@ static bool GetUHCIDescriptor(struct BasicUSBHeader* uhci, struct usb_setup_pack
         SetTDOnIndex(controller, 1, (struct UHCITransferDescriptor){
             .buffer = (uint32_t)buffer,
             .next = no_response ? 1 : ((uint32_t)(&controller->tdpool[packets + 1]) & ~0xF) | (1 << 2),
-            .packet_header = (HEADER_TYPE_IN & 0xFF) | (((struct UHCIDevice*)uhci->controller)->device_address << 8) | (1 << 19) | (((setup.lenght - 1) & 0x7ff) << 21),
-            .status = (1 << 23) | (((struct UHCIDevice*)uhci->controller)->device_address << 26) | (3 << 27) | (1 << 29)
+            .packet_header = (HEADER_TYPE_IN & 0xFF) | ((*(uint8_t*)uhci->controller_reserved) << 8) | (1 << 19) | (((setup.lenght - 1) & 0x7ff) << 21),
+            .status = (1 << 23) | (((struct UHCIDevice*)uhci->controller)->lowspeed << 26) | (3 << 27) | (1 << 29)
         }); // Data packet
         packets++;
     }
@@ -297,7 +304,7 @@ static bool GetUHCIDescriptor(struct BasicUSBHeader* uhci, struct usb_setup_pack
         SetTDOnIndex(controller, packets, (struct UHCITransferDescriptor){
             .buffer = 0,
             .next = 1,
-            .packet_header = (HEADER_TYPE_OUT & 0xFF) | (((struct UHCIDevice*)uhci->controller)->device_address << 8) | (1 << 19) | ((0 & 0x7ff) << 21),
+            .packet_header = (HEADER_TYPE_OUT & 0xFF) | ((*(uint8_t*)uhci->controller_reserved) << 8) | (1 << 19) | ((0 & 0x7ff) << 21),
             .status = (1 << 23) | (((struct UHCIDevice*)uhci->controller)->lowspeed << 26) | (3 << 27)
         }); // Status packet
         packets++;
@@ -322,6 +329,7 @@ static bool GetUHCIDescriptor(struct BasicUSBHeader* uhci, struct usb_setup_pack
                     DumpTd(controller->tdpool[i]);
                     printf("TD%d Failed!\n", i + 1);
                 #endif
+                break;
             }
     } SetUHCIRegisterW(*controller, USBSTS, 0x00FF);
 
@@ -337,36 +345,42 @@ static void SetUHCIInterruptTranfers(struct BasicUSBHeader* uhci) {
     }
     controller->qhpool[0].horizontal_pointer = 1;
     controller->qhpool[0].vertical_pointer   = 1;
-    
+
     for (int i = 0; i < 1024; i++) {
         if ((i & 31) == 0) // Every 32ms
-            SetFrameEntry(controller, i, (uint32_t)&controller->qhpool[5 * 2], 0, FRAME_TYPE_QH);
+            SetFrameEntry(controller, i, (uint32_t)&controller->qhpool[INTERRUPT_TRANSFER_INTERVAL_32MS], 0, FRAME_TYPE_QH);
         else if ((i & 15) == 0) // Every 16ms
-            SetFrameEntry(controller, i, (uint32_t)&controller->qhpool[4 * 2], 0, FRAME_TYPE_QH);
+            SetFrameEntry(controller, i, (uint32_t)&controller->qhpool[INTERRUPT_TRANSFER_INTERVAL_16MS], 0, FRAME_TYPE_QH);
         else if ((i & 7) == 0) // Every 8ms
-            SetFrameEntry(controller, i, (uint32_t)&controller->qhpool[3 * 2], 0, FRAME_TYPE_QH);
+            SetFrameEntry(controller, i, (uint32_t)&controller->qhpool[INTERRUPT_TRANSFER_INTERVAL_8MS], 0, FRAME_TYPE_QH);
         else if ((i & 3) == 0) // Every 4ms
-            SetFrameEntry(controller, i, (uint32_t)&controller->qhpool[2 * 2], 0, FRAME_TYPE_QH);
+            SetFrameEntry(controller, i, (uint32_t)&controller->qhpool[INTERRUPT_TRANSFER_INTERVAL_4MS], 0, FRAME_TYPE_QH);
         else if ((i & 1) == 0) // Every 2ms
-            SetFrameEntry(controller, i, (uint32_t)&controller->qhpool[1 * 2], 0, FRAME_TYPE_QH);
+            SetFrameEntry(controller, i, (uint32_t)&controller->qhpool[INTERRUPT_TRANSFER_INTERVAL_2MS], 0, FRAME_TYPE_QH);
         else // Every 1ms
-            SetFrameEntry(controller, i, (uint32_t)&controller->qhpool[0], 0, FRAME_TYPE_QH);
+            SetFrameEntry(controller, i, (uint32_t)&controller->qhpool[INTERRUPT_TRANSFER_INTERVAL_1MS], 0, FRAME_TYPE_QH);
     }
+    printf("%d\n", (*(uint8_t*)uhci->controller_reserved));
 }
 static void SetUHCITransferAt(struct BasicUSBHeader* uhci, uint8_t interval, void* buffer, uint16_t size) {
     struct UHCIDevice* controller = (struct UHCIDevice*)uhci->controller;
 
+    int endpoint_in;
+    for (endpoint_in = 0; endpoint_in < uhci->endpoints_count; endpoint_in++)
+        if (uhci->endpoint[endpoint_in].bEndpointAddress & (1 << 7)) break;
+    // if (!endpoint_in) return;
+
     SetTDOnIndex(controller, 0, (struct UHCITransferDescriptor){
         .buffer = (uint32_t)buffer,
         .next = 1,
-        .packet_header = (HEADER_TYPE_IN & 0xFF) | (((struct UHCIDevice*)uhci->controller)->device_address << 8) | (1 << 19) | ((uhci->endpoint[0].bEndpointAddress & 0xF) << 15) | (((size - 1) & 0x7ff) << 21),
+        .packet_header = (HEADER_TYPE_IN & 0xFF) | ((*(uint8_t*)uhci->controller_reserved) << 8) | (1 << 19) | ((uhci->endpoint[endpoint_in].bEndpointAddress & 0xF) << 15) | (((size - 1) & 0x7ff) << 21),
         .status = (1 << 23) | (((struct UHCIDevice*)uhci->controller)->lowspeed << 26) | (3 << 27) | (1 << 24)
     });
 
     controller->qhpool[interval].vertical_pointer = GetQueueHeadEntry((uint32_t)&controller->tdpool[0], 0, FRAME_TYPE_TD);
 }
 
-static bool SendUHCIPacket(struct BasicUSBHeader* header, struct usb_setup_packet setup_packet, void* buffer, bool twice) { return GetUHCIDescriptor(header, setup_packet, buffer, true, twice); }
+static bool SendUHCIPacket(struct BasicUSBHeader* header, struct usb_setup_packet setup_packet, void* buffer, bool twice) { return SetUHCIControlTransfer(header, setup_packet, buffer, true, twice); }
 
 void uhci_free(struct UHCIDevice* controller) {
     kfree(controller->framelist);

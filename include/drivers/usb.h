@@ -120,6 +120,8 @@ struct BasicUSBHeader {
     uint8_t endpoints_count;
 
     struct PCIDevice* controller;
+    void* controller_reserved; // Used by the controller
+
     void* user_data; // Used by HID Devices and its data
 };
 
@@ -134,6 +136,7 @@ struct USBDevice {
     uint8_t type;
     struct BasicUSBHeader data;
     bool is_hid;
+    uint8_t index;
 
     bool (*SendPacket)(struct BasicUSBHeader* data, struct usb_setup_packet setup_packet, void* buffer, bool no_response /* If the packet has no response */);
     void (*InitInterruptTranfers)(struct BasicUSBHeader* data);
@@ -141,7 +144,7 @@ struct USBDevice {
 };
 
 /*
-A UHCI Controller can have 2 usbs max, so 
+A UHCI Controller can have 2 usbs max, so
 */
 
 extern struct USBDevice USBDevices[16];
@@ -153,10 +156,10 @@ static const char* USBTypesTable[] = {
     "OHCI",
     "EHCI",
     "xHCI",
-    "PS2"
+    "PS2" // hufdehiugdfiuh
 };
 
 bool IsHID(struct USBDevice* device);
-bool GetUSBDescriptor(struct USBDevice* device, struct usb_setup_packet packet, void* buffer);
+bool SendUSBPacket(struct USBDevice* device, struct usb_setup_packet packet, void* buffer);
 void GetUSBStringIndex(struct USBDevice device, struct usb_string_descriptor* string, uint8_t index, uint16_t langid);
 void GetUSBConfiguration(struct USBDevice* device, uint8_t configuration_index);
