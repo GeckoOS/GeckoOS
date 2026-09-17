@@ -2,6 +2,7 @@
 #include "drivers/usb.h"
 #include "drivers/vga.h"
 #include "drivers/hid/keyboard.h"
+#include "gk/gk.h"
 #include <drivers/pci.h>
 #include <drivers/e1000.h>
 #include <mem.h>
@@ -86,6 +87,20 @@ static const char *class2str(uint8_t class) {
     if (class > PCI_CLASSES_NUM || class < 0) return "Unknown";
     return pci_classes[class];
 }
+
+#ifdef DEBUG
+    static const char *progif2usbcontroller(uint8_t progif) {
+        switch (progif) {
+            case 0x00: return "UHCI Controller";
+            case 0x10: return "OHCI Controller";
+            case 0x20: return "EHCI Controller";
+            case 0x30: return "xHCI Controller";
+            case 0x80: return "Unspecified Controller";
+            case 0xFE: return "USB Device (Not a host controller)";
+        }
+        return "Unknown";
+    }
+#endif
 
 #ifdef DEBUG
     const char *nic_vendor_str(uint16_t vendor) {
@@ -244,13 +259,26 @@ static void walk_buses(struct pci_bus *start, void (*cb)(struct pci_dev *)) {
 
 static void lspci_cb(struct pci_dev *dev) {
     #ifdef DEBUG
-        printf("%02x:%02x.%d %s (Subclass: 0x%X, ProgIF: 0x%X)\n",
-           dev->bus->primary,
-           PCI_DEV(dev->devfn),
-           PCI_FN(dev->devfn),
-           class2str((uint8_t)dev->class),
-           pci_readb(dev->bus->primary, PCI_DEV(dev->devfn), PCI_FN(dev->devfn), offsetof(struct pci_hdr, common.subclass)),
-           pci_readb(dev->bus->primary, PCI_DEV(dev->devfn), PCI_FN(dev->devfn), offsetof(struct pci_hdr, common.prog_if)));
+        uint8_t subclass = pci_readb(dev->bus->primary, PCI_DEV(dev->devfn), PCI_FN(dev->devfn), offsetof(struct pci_hdr, common.subclass));
+        uint8_t progif = pci_readb(dev->bus->primary, PCI_DEV(dev->devfn), PCI_FN(dev->devfn), offsetof(struct pci_hdr, common.prog_if));
+
+        if (subclass == 0x3) {
+            printf("%02x:%02x.%d %s (%s) (Subclass: 0x%X, ProgIF: 0x%X)\n",
+                dev->bus->primary,
+                PCI_DEV(dev->devfn),
+                PCI_FN(dev->devfn),
+                class2str((uint8_t)dev->class),
+                progif2usbcontroller(progif),
+                subclass,
+                progif);
+        } else
+            printf("%02x:%02x.%d %s (Subclass: 0x%X, ProgIF: 0x%X)\n",
+                dev->bus->primary,
+                PCI_DEV(dev->devfn),
+                PCI_FN(dev->devfn),
+                class2str((uint8_t)dev->class),
+                subclass,
+                progif);
     #else
         printf("%02x:%02x.%d %s\n",
            dev->bus->primary,
@@ -302,25 +330,34 @@ static void pci_filter(struct pci_dev *dev) {
                     #endif
                     struct USBDevice* devices = uhci_init((struct PCIDevice){bus, slot, fn}); // Devices returned from the uhci controller
 
+                    if (!devices) {
+                        printc("UHCI Controller initialization failed!\n", VGA_COLOR_RED);
+                        break;
+                    }
+
                     for (int i = 0; i < 2; i++) { // That array has the size of 2 usbdevices, because uhci have 2 ports
                         if (!devices[i].data.controller) continue;
                         devices[i].index = USBDevices_Count;
                         USBDevices[USBDevices_Count++] = devices[i];
 
-                        for (int x = 0; x < USBDevices[USBDevices_Count - 1].data.device_descriptor.bNumConfigurations + 1; x++)
+                        struct USBDevice* device = &USBDevices[USBDevices_Count - 1];
+
+                        device->InitInterruptTranfers(&device->data);
+
+                        for (int x = 0; x < device->data.device_descriptor.bNumConfigurations + 1; x++)
                             GetUSBConfiguration(&USBDevices[USBDevices_Count - 1], x);
-                        
-                        USBDevices[USBDevices_Count - 1].is_hid = IsHID(&USBDevices[USBDevices_Count - 1]);
-                        if (USBDevices[USBDevices_Count - 1].is_hid) {
-                            SetProtocol(USBDevices[USBDevices_Count - 1], BOOT_PROTOCOL); // The device will explode if that protocol isn't supported
+
+                        device->is_hid = IsHID(&USBDevices[USBDevices_Count - 1]);
+                        if (device->is_hid) {
+                            SetProtocol(*device, BOOT_PROTOCOL); // The device will explode if that protocol isn't supported
                             
                             // Detect if the device is a mouse or a keyboard by its protocol value
                             #define KEYBOARD_PROTOCOL 1
                             #define MOUSE_PROTOCOL 2
 
-                            if (USBDevices[USBDevices_Count - 1].data.interface[0].bInterfaceProtocol == KEYBOARD_PROTOCOL) {
-                                HIDKeyboardInit(&USBDevices[USBDevices_Count - 1]);
-                            } else if (USBDevices[USBDevices_Count - 1].data.interface[0].bInterfaceProtocol == MOUSE_PROTOCOL) {
+                            if (device->data.interface[0].bInterfaceProtocol == KEYBOARD_PROTOCOL) {
+                                HIDKeyboardInit(device);
+                            } else if (device->data.interface[0].bInterfaceProtocol == MOUSE_PROTOCOL) {
                                 // Nothing...
                             }
                         }
@@ -330,6 +367,12 @@ static void pci_filter(struct pci_dev *dev) {
                 case 0x10: // OHCI
                     #ifdef DEBUG
                         printf("  [%02x:%02x.%d] OHCI Controller\n",
+                            bus, slot, fn);
+                    #endif
+                    break;
+                case 0x20: // EHCI
+                    #ifdef DEBUG
+                        printf("  [%02x:%02x.%d] EHCI Controller\n",
                             bus, slot, fn);
                     #endif
                     break;

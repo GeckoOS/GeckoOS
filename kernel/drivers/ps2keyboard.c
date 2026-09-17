@@ -94,7 +94,12 @@ void keyboard_handler(registers_t *r)
     kb_ready      = 1;
 
     set_layout(PS2_LAYOUTS[0]);
-    actual_input = 0; // ps2 keyboard
+    if (actual_input) {
+        #ifdef DEBUG
+            printf("\nSwitched to PS2 Keyboard\n");
+        #endif
+        actual_input = 0; // ps2 keyboard
+    }
 }
 // installing the handler of the pic
 void keyboard_install()

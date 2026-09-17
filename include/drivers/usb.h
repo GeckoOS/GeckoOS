@@ -139,6 +139,7 @@ struct USBDevice {
     uint8_t index;
 
     bool (*SendPacket)(struct BasicUSBHeader* data, struct usb_setup_packet setup_packet, void* buffer, bool no_response /* If the packet has no response */);
+    bool (*IsConnected)(struct BasicUSBHeader* data);
     void (*InitInterruptTranfers)(struct BasicUSBHeader* data);
     void (*SetInterruptTransfer)(struct BasicUSBHeader* data, uint8_t interval, void* buffer, uint16_t size);
 };

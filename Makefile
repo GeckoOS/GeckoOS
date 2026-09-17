@@ -98,6 +98,16 @@ run-ohci: gecko.iso fat32.img
 	  -monitor stdio \
 	  -device pci-ohci,id=ohci -device usb-mouse,bus=ohci.0
 
+run-ehci: gecko.iso fat32.img
+	qemu-system-x86_64 \
+	  -cdrom gecko.iso -m 512M \
+	  -drive format=raw,file=fat32.img \
+	  -boot order=d \
+	  -netdev user,id=net0 \
+	  -device e1000,netdev=net0 \
+	  -monitor stdio \
+	  -device usb-ehci,id=ehci -device usb-kbd,bus=ehci.0,id=keyboard
+
 VBOXCreateMachine:
 	VBoxManage createvm --name "GECKOOS" --ostype "Other_64" --register
 	VBoxManage storagectl "GECKOOS" --name "IDE Controller" --add ide

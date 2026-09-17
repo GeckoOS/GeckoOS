@@ -13,6 +13,8 @@ bool IsHID(struct USBDevice* device) {
 }
 
 bool SendUSBPacket(struct USBDevice* device, struct usb_setup_packet packet, void* buffer) {
+    if (!device->IsConnected(&device->data))
+        return false;
     return device->SendPacket(&device->data, packet, buffer, false);
 }
 
@@ -34,13 +36,15 @@ void GetUSBStringIndex(struct USBDevice device, struct usb_string_descriptor* st
 }
 
 void GetUSBConfiguration(struct USBDevice* device, uint8_t configuration_index) { // Put the configuration descriptor and all of its interfaces and endpoints inside the usb device struct
-    device->SendPacket(&device->data, (struct usb_setup_packet){
-        .requesttype = 0x80,
-        .request = REQUEST_GET_DESCRIPTOR,
-        .value = DESCRIPTOR_TYPE_CONFIGURATION << 8 | configuration_index,
-        .index = 0,
-        .lenght = (sizeof(device->data.config_descriptor[configuration_index].header) + sizeof(device->data.config_descriptor[configuration_index].wTotalLength))
-    }, &device->data.config_descriptor[configuration_index].header, false);
+    if (!SendUSBPacket(device, (struct usb_setup_packet){
+            .requesttype = 0x80,
+            .request = REQUEST_GET_DESCRIPTOR,
+            .value = DESCRIPTOR_TYPE_CONFIGURATION << 8 | configuration_index,
+            .index = 0,
+            .lenght = (sizeof(device->data.config_descriptor[configuration_index].header) + sizeof(device->data.config_descriptor[configuration_index].wTotalLength))
+        }, &device->data.config_descriptor[configuration_index].header)) {
+        return;
+    }
 
     char* buffer = kmalloc(device->data.config_descriptor[0].wTotalLength);
     device->SendPacket(&device->data, (struct usb_setup_packet){
@@ -59,6 +63,5 @@ void GetUSBConfiguration(struct USBDevice* device, uint8_t configuration_index) 
             device->data.interface[device->data.interfaces_count++] = *(struct usb_interface_descriptor*)header;
         else if (header->bDescriptortype == DESCRIPTOR_TYPE_ENDPOINT)
             device->data.endpoint[device->data.endpoints_count++] = *(struct usb_endpoint_descriptor*)header;
-    }
-    kfree(buffer);
+    } kfree(buffer);
 }

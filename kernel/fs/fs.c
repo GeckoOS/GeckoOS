@@ -60,7 +60,7 @@ Buffer_t readfile(unsigned char* fname) {
 
     uint8_t readbuf[128];
     int bytes, j = 0, o = 0;
-	uint8_t* buffer = kmalloc(entries.entries[found].file.file_size); // HARDCODED (20kb)
+	uint8_t* buffer = kmalloc(entries.entries[found].file.file_size);
     while ((bytes = entries.entries[found].file.read(
             (void*)&entries.entries[found].file, j * 128, 128, readbuf)) > 0) {
         j++;

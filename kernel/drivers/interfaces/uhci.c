@@ -35,6 +35,7 @@ uint32_t ReadUHCIRegisterL(struct UHCIDevice controller, uint8_t reg) {
 static bool SendUHCIPacket(struct BasicUSBHeader* header, struct usb_setup_packet setup_packet, void* buffer, bool twice);
 static void SetUHCIInterruptTranfers(struct BasicUSBHeader* uhci);
 static void SetUHCITransferAt(struct BasicUSBHeader* uhci, uint8_t interval, void* buffer, uint16_t size);
+static bool IsUHCIConnected(struct BasicUSBHeader* uhci);
 
 uint32_t GetQueueHeadEntry(uint32_t entry, bool framedisable, bool type) {
     return (entry & ~0xF) |
@@ -51,10 +52,12 @@ void uhci_interrupt(registers_t* _) {
         uint16_t status = ReadUHCIRegisterW(*controller, 0x2);
         SetUHCIRegisterW(*controller, 0x2, status | 1);
 
+        if (!USBDevices[i].IsConnected(&USBDevices[i].data)) {
+            // printf("\nUHCI Usb is disconnected\n");
+            return;
+        }
+
         if ((status & 1) && (controller->tdpool[0].status & ~(1 << 23))) {
-            if ((controller->tdpool[0].packet_header & ((1 << 8)|(1 << 9)|(1 << 10)|(1 << 11)|(1 << 12)|(1 << 13)|(1 << 14)))) {
-                // printf("%d\n", (controller->tdpool[0].packet_header & ((1 << 8)|(1 << 9)|(1 << 10)|(1 << 11)|(1 << 12)|(1 << 13)|(1 << 14))));
-            }
             controller->qhpool[6].vertical_pointer = 1;
 
             // Now we parse what the controller told us
@@ -85,6 +88,8 @@ static void SetQHOnIndex(struct UHCIDevice* uhci, int index, struct UHCIQueueHea
 }
 
 struct USBDevice* uhci_init(struct PCIDevice device) {
+    // return NULL;
+
     IOBar bar4 = PCIGetIOBar(device, 4);
 
     struct UHCIDevice* controller = kmalloc(sizeof(struct UHCIDevice));
@@ -145,6 +150,7 @@ struct USBDevice* uhci_init(struct PCIDevice device) {
     // printf("%d\n", pci_readb(device.bus, device.slot, device.func, 0x3C)); // Is it normal that this irq is the same as the e1000 irq
 
     struct USBDevice* devices = kmalloc(sizeof(struct USBDevice*) * 2);
+    if (!devices) return NULL;
     memset(devices, 0, sizeof(struct USBDevice) * 2);
 
     // Look if a usb is connected in any of the 2 ports
@@ -173,6 +179,7 @@ struct USBDevice* uhci_init(struct PCIDevice device) {
             if (!timeout) {
                 set_printf_color(VGA_COLOR_LIGHT_RED);
                     printf("Failed to enable UHCI Controller's port %d\n", i + 1);
+                    devices[i].data.controller = NULL;
                 set_printf_color(VGA_COLOR_WHITE);
                 continue;
             }
@@ -212,6 +219,7 @@ struct USBDevice* uhci_init(struct PCIDevice device) {
             devices[i].SendPacket = SendUHCIPacket;
             devices[i].InitInterruptTranfers = SetUHCIInterruptTranfers;
             devices[i].SetInterruptTransfer = SetUHCITransferAt;
+            devices[i].IsConnected = IsUHCIConnected;
             (*(uint8_t*)devices[i].data.controller_reserved) = i + 1;
 
             // printf("%d\n", (*(uint8_t*)devices[i].data.controller_reserved));
@@ -223,10 +231,10 @@ struct USBDevice* uhci_init(struct PCIDevice device) {
     return devices;
 err:
     kfree(controller->framelist);
-    controller->framelist = NULL;
     kfree(controller->tdpool);
     kfree(controller->qhpool);
     kfree(controller);
+
     return NULL;
 }
 
@@ -360,10 +368,10 @@ static void SetUHCIInterruptTranfers(struct BasicUSBHeader* uhci) {
         else // Every 1ms
             SetFrameEntry(controller, i, (uint32_t)&controller->qhpool[INTERRUPT_TRANSFER_INTERVAL_1MS], 0, FRAME_TYPE_QH);
     }
-    printf("%d\n", (*(uint8_t*)uhci->controller_reserved));
 }
 static void SetUHCITransferAt(struct BasicUSBHeader* uhci, uint8_t interval, void* buffer, uint16_t size) {
     struct UHCIDevice* controller = (struct UHCIDevice*)uhci->controller;
+    // if (!uhci->controller_reserved || !uhci->controller) return;
 
     int endpoint_in;
     for (endpoint_in = 0; endpoint_in < uhci->endpoints_count; endpoint_in++)
@@ -381,6 +389,10 @@ static void SetUHCITransferAt(struct BasicUSBHeader* uhci, uint8_t interval, voi
 }
 
 static bool SendUHCIPacket(struct BasicUSBHeader* header, struct usb_setup_packet setup_packet, void* buffer, bool twice) { return SetUHCIControlTransfer(header, setup_packet, buffer, true, twice); }
+static bool IsUHCIConnected(struct BasicUSBHeader* uhci) {
+    if (!uhci->controller) return false;
+    return ReadUHCIRegisterW((*(struct UHCIDevice*)uhci->controller), 0x10 + (2 * ((*(uint8_t*)uhci->controller_reserved) - 1))) & 1;
+}
 
 void uhci_free(struct UHCIDevice* controller) {
     kfree(controller->framelist);
