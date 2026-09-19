@@ -3,11 +3,11 @@
 #include <mem.h>
 #include <stdint.h>
 
-static uint64_t fb_base_addr;
-static uint32_t fb_width;
-static uint32_t fb_height;
-static uint32_t fb_pitch;
-static uint8_t  fb_bpp;
+uint64_t fb_base_addr;
+uint32_t fb_width;
+uint32_t fb_height;
+uint32_t fb_pitch;
+uint8_t  fb_bpp;
 
 void fb_init(uint64_t addr, uint32_t width, uint32_t height, uint32_t pitch, uint8_t bpp)
 {

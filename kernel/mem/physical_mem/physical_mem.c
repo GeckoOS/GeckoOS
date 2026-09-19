@@ -3,6 +3,7 @@
  */
 #include "boot/multiboot2.h"
 #include "drivers/vga.h"
+#include "ports.h"
 #include <mem.h>
 #include <mem/physical_mem.h>
 #include <stddef.h>
@@ -126,8 +127,13 @@ void initialize_memory_manager_from_mbi(uint64_t mbi_addr)
             while ((uintptr_t)entry < (uintptr_t)tag + tag->size) {
                 if (entry->type == MULTIBOOT2_MEMORY_AVAILABLE) {
                     #ifdef DEBUG
-                        set_printf_color(VGA_COLOR_DARK_GREY);
-                        printf("Available memory at 0x%p with %d bytes\n", entry->base_addr, entry->length);
+                        if (entry->length) set_printf_color(VGA_COLOR_DARK_GREY);
+                        else set_printf_color(VGA_COLOR_RED);
+                        printf("Available memory at 0x%p with %lu bytes\n", entry->base_addr, entry->length); // %d is for int32_ts
+                        if (!entry->length) {
+                            printf("Available memory with negative length? (That isn't good) Halting forever...");
+                            for(;;) HALT();
+                        }
                     #endif
                     free_region(entry->base_addr, entry->length);
                 }

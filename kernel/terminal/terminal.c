@@ -442,7 +442,7 @@ void add_to_history(void)
                 glyph_line |= (0x80 >> col);
             }
         }
-        (void)glyph_line;
+        // (void)glyph_line;
         console_history[console_history_tail][x] = entry;
     }
 

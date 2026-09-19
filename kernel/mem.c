@@ -16,24 +16,15 @@ void *memcpy(void *dest, const void *src, unsigned long n) {
     return dest;
 }
 
-void *memmove(void *dest, const void *src, unsigned long n) { // USE rep movsb
-    unsigned char *d = dest;
-    const unsigned char *s = src;
-    if (d < s) {
-        for (unsigned long i = 0; i < n; i++) {
-            d[i] = s[i];
-        }
-    } else {
-        for (unsigned long i = n; i > 0; i--) {
-            d[i - 1] = s[i - 1];
-        }
-    }
+void *memmove(void *dest, const void *src, unsigned long n) {
+    asm volatile("rep movsb" : : "D"(dest), "S"(src), "c"(n));
     return dest;
 }
 
 // [Ember2819: BEGIN - memset implementation]
 void *memset(void *dest, int val, unsigned long n) {
     asm volatile("rep stosb" : : "D"(dest), "c"(n), "a"(val));
+    return dest;
 }
 // [Ember2819: END]
 
@@ -64,7 +55,7 @@ void kalloc_init(uint64_t start, uint64_t size) {
     heap_end = heap_ptr + size;
 
     free_list_head = (block*)heap_ptr;
-    free_list_head->free = true;
+    free_list_head->free = true; // CRASH
     free_list_head->size = heap_end - heap_ptr;
     free_list_head->next = NULL;
 }

@@ -4,7 +4,6 @@
 #include "drivers/ps2.h"
 #include "drivers/tables/isr.h"
 #include <drivers/pit.h>
-#include "drivers/input.h"
 #include "mem.h"
 #include "ports.h"
 #include "terminal/printf.h"
@@ -53,7 +52,6 @@ __attribute__((section(".text.entry")))
 void _entry(uint64_t mbi) {
     initialize_memory_manager_from_mbi(mbi);
     kalloc_init(max_mem_used.base_addr + 0x100000, max_mem_used.length);
-    // mmio_map((uint64_t)max_mem_used.base_addr, max_mem_used.length);
 
     if (!vmm_init()) {
         printc("Vmm_init failed -- halting\n", VGA_COLOR_RED);

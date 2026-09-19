@@ -79,7 +79,7 @@ run-fat32: gecko.iso fat32.img # I dont want to make a new .img
 
 run-uhci: gecko.iso fat32.img
 	qemu-system-x86_64 \
-	  -cdrom gecko.iso -m 512M \
+	  -cdrom gecko.iso -m 3.5G \
 	  -drive format=raw,file=fat32.img \
 	  -boot order=d \
 	  -netdev user,id=net0 \

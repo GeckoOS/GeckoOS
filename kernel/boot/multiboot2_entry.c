@@ -80,12 +80,18 @@ void multiboot2_main(uint64_t magic, uint64_t mbi_addr)
                 case MULTIBOOT2_TAG_TYPE_MMAP:
                     struct multiboot2_tag_mmap *mmap_tag = (struct multiboot2_tag_mmap *)tag;
                     struct multiboot2_mmap_entry *entry  = mmap_tag->entries;
+
                     while ((uintptr_t)entry < (uintptr_t)tag + tag->size) {
                         if (entry->type == MULTIBOOT2_MEMORY_AVAILABLE) {
-                            uint64_t region_end = entry->base_addr + entry->length;
-                            if (region_end > max_addr_used) {
+                            // uint64_t region_end = entry->base_addr + entry->length;
+                            /* if (region_end > max_addr_used) {
                                 max_addr_used = region_end;
                                 max_mem_used = *entry;
+                            } */ // This choose the memory region to work with based on the address instead of the lenght of that address
+                             
+                            if (entry->length > max_mem_used.length) {
+                                max_mem_used = *entry;
+                                max_addr_used = entry->base_addr + entry->length;
                             }
                         }
                         entry = (multiboot2_mmap_entry_t *)((uintptr_t)entry +
