@@ -1,6 +1,7 @@
 #include "drivers/tables/isr.h"
 #include "drivers/vga.h"
 #include "terminal/terminal.h"
+#include "drivers/framebuffer.h"
 #include "terminal/printf.h"
 #include <stdint.h>
 #include <stdbool.h>
@@ -105,9 +106,6 @@ bool vmm_init(void)
             return false;
     }
 
-    extern uint64_t g_fb_addr;
-    extern uint32_t g_fb_height;
-    extern uint32_t g_fb_pitch;
     if (g_fb_addr) {
         uint64_t fb_phys_start = g_fb_addr & ~((uint64_t)PAGE_SIZE - 1);
         uint64_t fb_size       = (uint64_t)g_fb_height * g_fb_pitch;
@@ -121,9 +119,8 @@ bool vmm_init(void)
     }
 
     uint64_t kernel_phys = 0x100000;
-    uint64_t kernel_virt = 0xFFFFFFFF80100000ULL;
     for (uint64_t off = 0; off < 0x400000; off += PAGE_SIZE) {
-        if (!vmm_map(pml4, kernel_phys + off, kernel_virt + off,
+        if (!vmm_map(pml4, kernel_phys + off, VIRT + off,
                      PTE_PRESENT | PTE_WRITABLE))
             return false;
     }

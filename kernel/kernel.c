@@ -62,7 +62,7 @@ void _entry(uint64_t mbi) {
     outb(0x22, 0x70);
     outb(0x23, 0x01);
 
-    //=====================Setting up interrupts===================//
+    // Setting up interrupts
 
     has_apic = cpu_has_apic();
 
@@ -99,13 +99,12 @@ void _entry(uint64_t mbi) {
     } else {
         start_pit_timer(PITHZ);
     }
-    //================= hardware init===================//
+    // hardware init
     printc("Enabling hardware devices...\n", VGA_COLOR_LIGHT_GREY);
     // basic stuff
-    keyboard_install();
-    set_layout(HID_LAYOUTS[0]);
     terminal_init();
     register_interrupt_handler(0x6, ud_exception_handler);
+
     // pci init
     enumerate_pci();
     pci_detect_controllers();
@@ -117,6 +116,8 @@ void _entry(uint64_t mbi) {
 
     // ps2
     if (ps2_init() & (1 << 1)) mouse_init();
+    keyboard_install();
+    set_layout(HID_LAYOUTS[0]);
 
     #ifndef DEBUG
         terminal_clear(TERM_COLOR);

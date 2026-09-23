@@ -38,15 +38,6 @@ kernel.elf: $(OBJECTS)
 
 ISODIR = isodir
 
-grub-modules/i386-pc/modinfo.sh:
-	@echo "Downloading i386-pc GRUB modules..."
-	@mkdir -p grub-modules
-	@curl -sL "https://archive.archlinux.org/packages/g/grub/grub-2%3A2.14-1-x86_64.pkg.tar.zst" \
-		-o /tmp/grub-x86_64.pkg.tar.zst
-	@tar --zstd -xf /tmp/grub-x86_64.pkg.tar.zst -C /tmp 2>/dev/null || true
-	@cp -r /tmp/usr/lib/grub/i386-pc grub-modules/
-	@rm -rf /tmp/usr /tmp/grub-x86_64.pkg.tar.zst
-
 grub-iso: kernel.elf
 	@mkdir -p $(ISODIR)/boot/grub
 	cp kernel.elf         $(ISODIR)/boot/kernel.elf
@@ -68,7 +59,7 @@ Elffile:
 	$(MAKE) -C Assets/Elf\ for\ testing
 	mv Assets/Elf\ for\ testing/Elf .
 
-run-fat32: gecko.iso fat32.img # I dont want to make a new .img
+run-fat32: gecko.iso # fat32.img # I dont want to make a new .img
 	qemu-system-x86_64 \
 	  -cdrom gecko.iso -m 1G \
 	  -drive format=raw,file=fat32.img \
@@ -87,16 +78,6 @@ run-uhci: gecko.iso fat32.img
 	  -monitor stdio \
 	  -device piix3-usb-uhci,id=uhci \
 	  -device usb-kbd,bus=uhci.0,id=keyboard
-
-run-ohci: gecko.iso fat32.img
-	qemu-system-x86_64 \
-	  -cdrom gecko.iso -m 512M \
-	  -drive format=raw,file=fat32.img \
-	  -boot order=d \
-	  -netdev user,id=net0 \
-	  -device e1000,netdev=net0 \
-	  -monitor stdio \
-	  -device pci-ohci,id=ohci -device usb-mouse,bus=ohci.0
 
 run-ehci: gecko.iso fat32.img
 	qemu-system-x86_64 \

@@ -81,12 +81,8 @@ struct UHCIDevice {
     uint16_t ioport;
     uint16_t max_packet_size;
     uint8_t device_address;
-    bool lowspeed;
 };
 
 struct USBDevice* uhci_init(struct PCIDevice device);
-
-uint16_t ReadUHCIRegisterW(struct UHCIDevice controller, uint8_t reg);
-uint32_t ReadUHCIRegisterL(struct UHCIDevice controller, uint8_t reg);
 
 // bool GetUHCIDescriptor(struct UHCIDevice* controller, struct usb_setup_packet setup, void* buffer, bool wait, bool twice);

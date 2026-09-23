@@ -121,7 +121,6 @@ struct BasicUSBHeader {
 
     struct PCIDevice* controller;
     void* controller_reserved; // Used by the controller
-
     void* user_data; // Used by HID Devices and its data
 };
 

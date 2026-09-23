@@ -6,6 +6,8 @@
 #define PAGE_SIZE        4096ULL
 #define PT_ENTRIES       512
 
+#define VIRT 0xFFFFFFFF80100000ULL
+
 #define PML4_INDEX(a)  (((uint64_t)(a) >> 39) & 0x1FF)
 #define PDPT_INDEX(a)  (((uint64_t)(a) >> 30) & 0x1FF)
 #define PD_INDEX(a)    (((uint64_t)(a) >> 21) & 0x1FF)

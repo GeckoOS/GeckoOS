@@ -5,16 +5,6 @@ MULTIBOOT2_ARCH     equ 0
 HEADER_LENGTH       equ (mb2_header_end - mb2_header_start)
 HEADER_CHECKSUM     equ -(MULTIBOOT2_MAGIC + MULTIBOOT2_ARCH + HEADER_LENGTH)
 
-MULTIBOOT1_MAGIC    equ 0x1BADB002
-MULTIBOOT1_FLAGS    equ 0x3
-MULTIBOOT1_CHECKSUM equ -(MULTIBOOT1_MAGIC + MULTIBOOT1_FLAGS)
-
-section .multiboot1_header
-align 4
-    dd MULTIBOOT1_MAGIC
-    dd MULTIBOOT1_FLAGS
-    dd MULTIBOOT1_CHECKSUM
-
 section .multiboot2_header
 align 8
 mb2_header_start:

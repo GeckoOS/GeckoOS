@@ -46,6 +46,7 @@ void multiboot2_main(uint64_t magic, uint64_t mbi_addr)
         for (int i = 0; msg[i]; i++) {
             vga[i] = (uint16_t)((attr << 8) | (uint8_t)msg[i]);
         } */
+        // asm ("mov %%rax, %0" : "r"(0xBAD) : : "%rax");
         for (;;) { __asm__ volatile ("cli; hlt"); }
     }
 

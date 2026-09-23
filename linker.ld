@@ -19,10 +19,6 @@ SECTIONS
         KEEP(*(.multiboot2_header))
     } :text
 
-    .multiboot1_header : {
-        KEEP(*(.multiboot1_header))
-    } :text
-
     .text : {
         *(.text.multiboot2_entry)
         *(.text.entry)

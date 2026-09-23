@@ -783,8 +783,7 @@ static void cmd_runelf(uint8_t color) {
         printf("That file dosen't exists!\n");
         return;
     }
-    elf_load_stage1((Elf64_Ehdr*)file.bytes);
-    elf_load_stage2((Elf64_Ehdr*)file.bytes);
+    elf_load_file(file.bytes);
 
     kfree(file.bytes);
 }
@@ -804,7 +803,9 @@ static void cmd_show_usb_info(uint8_t color) {
     
     printf("\n");
     for (int i = 0; i < USBDevices_Count; i++) {
-        printf("%s USB (%02X:%02X.%d)\n", USBTypesTable[USBDevices[i].type], ((struct PCIDevice*)USBDevices[i].data.controller)->bus, ((struct PCIDevice*)USBDevices[i].data.controller)->slot, ((struct PCIDevice*)USBDevices[i].data.controller)->func);
+        bool connected = USBDevices[i].IsConnected(&USBDevices[i].data);
+        printf("%s USB (%02X:%02X.%d)%s\n", USBTypesTable[USBDevices[i].type], ((struct PCIDevice*)USBDevices[i].data.controller)->bus, ((struct PCIDevice*)USBDevices[i].data.controller)->slot, ((struct PCIDevice*)USBDevices[i].data.controller)->func, connected ? "" : " (Disconnected)");
+        if (!connected) continue;
 
         struct usb_string_descriptor string;
         GetUSBStringIndex(USBDevices[i], &string, 0, 0);

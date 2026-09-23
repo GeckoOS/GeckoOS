@@ -389,6 +389,9 @@ int acpi_init()
                                     if (*((uint32_t*)&amlbytes[i]) == 0x5F35535F) break;
                                 } */
                                 break;
+                            case 0x54445344:
+                                    printf("HEREEE\n");
+                                break;
                             default:
                                 break;
                         }

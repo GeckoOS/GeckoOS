@@ -4,7 +4,7 @@
 #include "drivers/ps2keyboard.h"
 #include "drivers/vga.h"
 #include "mem/paging.h"
-#include "ports.h"
+#include "terminal/terminal.h"
 #include "terminal/printf.h"
 #include <stdint.h>
 
@@ -53,10 +53,8 @@ void ioapic_init()
 {
 
     // Map IOAPIC physical address to virtual memory
-    if (acpi_ioapic_base == 0) {
-        set_printf_color(VGA_COLOR_RED);
-            printf("No IOAPIC found in ACPI tables");
-        set_printf_color(VGA_COLOR_WHITE);
+    if (!acpi_ioapic_base) {
+        printc("No IOAPIC found in ACPI tables", VGA_COLOR_RED);
     }
 
     uintptr_t ioapic_virt = acpi_ioapic_base;
