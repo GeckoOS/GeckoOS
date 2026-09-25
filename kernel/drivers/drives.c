@@ -2,9 +2,10 @@
 #include <mem.h>
 #include <drivers/ata.h>
 #include <terminal/terminal.h>
+#include <terminal/printf.h>
 #include <partition/mbr.h>
 
-static struct kdrive_t drives[32];
+struct kdrive_t drives[32];
 
 static void load_parameters( struct kdrive_t *drive )
 {
@@ -37,15 +38,15 @@ static void load_parameters( struct kdrive_t *drive )
 	}
 };
 
-void register_kdrive(struct kdrive_t *drive)
+void register_kdrive(struct kdrive_t drive)
 {
 	int i;
 	for ( i = 0; i < 32; i++ )
 	{
 		if (drives[i].sector_size)
 			continue;
-		load_parameters(drive);
-		drives[i] = *drive;
+		load_parameters(&drive);
+		drives[i] = drive;
 		break;
 	}
 };

@@ -1,9 +1,11 @@
 #include "boot/multiboot2.h"
 #include "drivers/acpi.h"
 #include "drivers/apic/lapic.h"
+#include "drivers/ide.h"
 #include "drivers/ps2.h"
 #include "drivers/tables/isr.h"
 #include <drivers/pit.h>
+#include "drivers/usb.h"
 #include "mem.h"
 #include "ports.h"
 #include "terminal/printf.h"
@@ -106,13 +108,13 @@ void _entry(uint64_t mbi) {
     register_interrupt_handler(0x6, ud_exception_handler);
 
     // pci init
+    drives_init();
     enumerate_pci();
     pci_detect_controllers();
 
     // network init
     net_init();
     arp_init();
-    drives_init();
 
     // ps2
     if (ps2_init() & (1 << 1)) mouse_init();

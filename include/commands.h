@@ -46,6 +46,7 @@ static void cmd_mkdir(uint8_t color);
 static void cmd_echo(uint8_t color);
 static void cmd_write(uint8_t color);
 static void cmd_runelf(uint8_t color);
+static void cmd_showdrives(uint8_t color);
 
 // Network
 static void cmd_ping(uint8_t color);

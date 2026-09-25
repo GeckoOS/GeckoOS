@@ -1,4 +1,6 @@
 #include <drivers/interfaces/uhci.h>
+#include "drivers/mass_storage_controller/ahci.h"
+#include "drivers/ide.h"
 #include "drivers/usb.h"
 #include "drivers/vga.h"
 #include "drivers/hid/keyboard.h"
@@ -257,6 +259,14 @@ static void walk_buses(struct pci_bus *start, void (*cb)(struct pci_dev *)) {
     }
 }
 
+// Helpers
+uint32_t PciRead(struct PCIDevice device, uint8_t off) { // A wrapper for pci_readl
+    return pci_readl(device.bus, device.slot, device.func, off);
+}
+void PciWrite(struct PCIDevice device, uint8_t off, uint32_t data) { // A wrapper for pci_writel
+    pci_writel(device.bus, device.slot, device.func, off, data);
+}
+
 static void lspci_cb(struct pci_dev *dev) {
     #ifdef DEBUG
         uint8_t subclass = pci_readb(dev->bus->primary, PCI_DEV(dev->devfn), PCI_FN(dev->devfn), offsetof(struct pci_hdr, common.subclass));
@@ -378,6 +388,22 @@ static void pci_filter(struct pci_dev *dev) {
                     break;
                 default: break;
             } break;
+        case 0x01: // Mass storage controller
+            if (subclass == 0x06) {
+                #ifdef DEBUG
+                    printf("  [%02x:%02x.%d] AHCI Controller\n",
+                        bus, slot, fn);
+                #endif
+                ahci_init((struct PCIDevice){bus, slot, fn});
+            } else if (subclass == 0x01) {
+                #ifdef DEBUG
+                    printf("  [%02x:%02x.%d] IDE Controller %d %d\n",
+                        bus, slot, fn, pci_readb(bus, slot, fn, 0x3C), pci_readb(bus, slot, fn, 0x3D));
+                #endif
+                
+                ide_init(0x1F0, 0x3F6, 0x170, 0x376, 0x000);
+            }
+            break;
     }
 }
 
@@ -388,18 +414,17 @@ void pci_detect_controllers() {
     walk_buses(&pci_root_bus, pci_filter);
 }
 
-
-// Helpers
-uint32_t PciRead(struct PCIDevice device, uint8_t off) { // A wrapper for pci_readl
-    return pci_readl(device.bus, device.slot, device.func, off);
-}
-void PciWrite(struct PCIDevice device, uint8_t off, uint32_t data) { // A wrapper for pci_writel
-    pci_writel(device.bus, device.slot, device.func, off, data);
-}
 IOBar PCIGetIOBar(struct PCIDevice device, uint8_t which) { // Returns 0 if the wanted bar is a memory space bar
     // If you want a bar that goes out of bounds, you will get straight shi
     uint8_t reg = BAR0_OFF + (BAR_SIZE * which);
 
     uint32_t bar = PciRead(device, reg);
     return (bar & 0x1) ? bar : 0;
+}
+IOBar PCIGetMemorySpaceBar(struct PCIDevice device, uint8_t which) { // Returns 0 if the wanted bar is a IO bar
+    // If you want a bar that goes out of bounds, you will get straight shi
+    uint8_t reg = BAR0_OFF + (BAR_SIZE * which);
+
+    uint32_t bar = PciRead(device, reg);
+    return (bar & 0x1) ? 0 : bar;
 }

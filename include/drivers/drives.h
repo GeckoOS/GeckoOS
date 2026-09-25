@@ -25,8 +25,10 @@ struct kdrive_t
 	kdrive_write_sectors write;
 };
 
-void register_kdrive( struct kdrive_t *drive );
+void register_kdrive( struct kdrive_t drive );
 struct kdrive_t *get_kdrive( int i );
 void drives_init();
+
+extern struct kdrive_t drives[32];
 
 #endif

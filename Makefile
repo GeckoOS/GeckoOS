@@ -51,7 +51,7 @@ run-grub: gecko.iso
 	  -device e1000,netdev=net0
 
 fat32.img:
-	dd if=/dev/zero of=fat32.img bs=1M count=64
+	dd if=/dev/zero of=fat32.img bs=1M count=32
 	mkfs.fat -F 32 -n "GECKOOS" fat32.img
 	@echo "fat32.img created."
 
@@ -88,6 +88,24 @@ run-ehci: gecko.iso fat32.img
 	  -device e1000,netdev=net0 \
 	  -monitor stdio \
 	  -device usb-ehci,id=ehci -device usb-kbd,bus=ehci.0,id=keyboard
+
+run-sata: fat32.img
+	qemu-system-x86_64 \
+	  -cdrom gecko.iso -m 512M \
+	  -boot order=d \
+	  -netdev user,id=net0 \
+	  -device e1000,netdev=net0 \
+	  -monitor stdio \
+	  -drive id=disk,file=fat32.img,if=none -device ahci,id=ahci -device ide-hd,drive=disk,bus=ahci.0
+
+run-ide: fat32.img
+	qemu-system-x86_64 -machine pc \
+	  -cdrom gecko.iso -m 512M \
+	  -boot order=d \
+	  -netdev user,id=net0 \
+	  -device e1000,netdev=net0 \
+	  -monitor stdio \
+	  -drive id=disk,file=fat32.img,if=ide,format=raw
 
 VBOXCreateMachine:
 	VBoxManage createvm --name "GECKOOS" --ostype "Other_64" --register

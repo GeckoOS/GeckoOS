@@ -53,36 +53,6 @@ static void SetQHOnIndex(struct UHCIDevice* uhci, int index, struct UHCIQueueHea
     uhci->qhpool[index] = qh;
 }
 
-void uhci_interrupt(registers_t* _) {
-    for (int i = 0; i < USBDevices_Count; i++) {
-        if (USBDevices[i].type != UHCICONTROLLER) continue;
-
-        struct UHCIDevice* controller = (struct UHCIDevice*)USBDevices[i].data.controller;
-
-        uint16_t status = ReadUHCIRegisterW((*controller), 0x2);
-        SetUHCIRegisterW((*controller), 0x2, status | 1);
-
-        if ((status & 1)) {
-            if (!USBDevices[i].IsConnected(&USBDevices[i].data)) {
-                // printf("UHCI Usb was disconnected\n");
-                // controller->tdpool[0].packet_header &= ~0x80000;
-                continue;
-            }
-            if ((controller->tdpool[0].status & ~0x800000)) {
-                controller->qhpool[INTERRUPT_TRANSFER_INTERVAL_8MS].vertical_pointer = 1;
-
-                // Now we parse what the controller told us
-                ManageKeyboardReport(USBDevices[i]);
-
-                controller->tdpool[0].status = 0x1800000;
-                controller->tdpool[0].packet_header ^= 0x80000;
-
-                controller->qhpool[INTERRUPT_TRANSFER_INTERVAL_8MS].vertical_pointer = GetQueueHeadEntry((uint32_t)&controller->tdpool[0], 0, FRAME_TYPE_TD);
-            }
-        }
-    }
-}
-
 static int uhci_count_ports(struct UHCIDevice uhci) {
     int port;
     for (port = 0; port < (uhci.ioport - PORTSC1) / 2; port++) {
@@ -125,6 +95,36 @@ static bool uhci_reset_port(struct UHCIDevice* controller, int i) {
         }
     }
     return true;
+}
+
+void uhci_interrupt(registers_t* _) {
+    for (int i = 0; i < USBDevices_Count; i++) {
+        if (USBDevices[i].type != UHCICONTROLLER) continue;
+
+        struct UHCIDevice* controller = (struct UHCIDevice*)USBDevices[i].data.controller;
+
+        uint16_t status = ReadUHCIRegisterW((*controller), 0x2);
+        SetUHCIRegisterW((*controller), 0x2, status | 1);
+
+        if ((status & 1)) {
+            if (!USBDevices[i].IsConnected(&USBDevices[i].data)) {
+                printf("UHCI Usb was disconnected %x\n", ReadUHCIRegisterW((*controller), 0x2));
+                controller->tdpool[0].packet_header &= ~0x80000;
+                continue;
+            }
+            if ((controller->tdpool[0].status & ~0x800000)) {
+                controller->qhpool[INTERRUPT_TRANSFER_INTERVAL_8MS].vertical_pointer = 1;
+
+                // Now we parse what the controller told us
+                ManageKeyboardReport(USBDevices[i]);
+
+                controller->tdpool[0].status = 0x1800000;
+                controller->tdpool[0].packet_header ^= 0x80000;
+
+                controller->qhpool[INTERRUPT_TRANSFER_INTERVAL_8MS].vertical_pointer = GetQueueHeadEntry((uint32_t)&controller->tdpool[0], 0, FRAME_TYPE_TD);
+            }
+        }
+    }
 }
 
 struct USBDevice* uhci_init(struct PCIDevice device) {
@@ -184,7 +184,7 @@ struct USBDevice* uhci_init(struct PCIDevice device) {
     SetUHCIRegisterW((*controller), USBINTR, INTR_IOCE);
 
     irq_install_handler(pci_readb(device.bus, device.slot, device.func, 0x3C), uhci_interrupt, 0);
-    // printf("%d\n", pci_readb(device.bus, device.slot, device.func, 0x3C)); // Is it normal that this irq is the same as the e1000 irq
+    // printf("%d\n", pci_readb(device.bus, device.slot, device.func, 0x3C)); // Is it normal that this irq is the same as the e1000 irq (Yes it is)
 
     struct USBDevice* devices = kmalloc(sizeof(struct USBDevice*) * 2);
     if (!devices) return NULL;

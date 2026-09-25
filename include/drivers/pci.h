@@ -180,14 +180,12 @@ void pci_detect_controllers();
 #define BAR_SIZE 0x04
 
 typedef uint32_t IOBar;
-struct IOBarStruct {
-    IOBar bar_address;
-    uint8_t size;
-};
+typedef uint32_t MemorySpaceBar;
 
 uint32_t PciRead(struct PCIDevice device, uint8_t off);
 void PciWrite(struct PCIDevice device, uint8_t off, uint32_t data);
 IOBar PCIGetIOBar(struct PCIDevice device, uint8_t which);
+MemorySpaceBar PCIGetMemorySpaceBar(struct PCIDevice device, uint8_t which);
 
 const char *nic_vendor_str(uint16_t vendor);
 

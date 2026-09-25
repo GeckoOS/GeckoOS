@@ -44,7 +44,7 @@
 #define ATA_DRIVE_SLAVE     1
 
 // Initialize ATA
-int ata_init(void);
+void ata_init(void);
 
 int ata_drive_present(int drive);
 

@@ -39,5 +39,14 @@ static inline uint32_t inl(uint16_t port) {
     return ret;
 }
 
+static inline void insl(uint16_t port, void *buffer, uint32_t count) {
+    asm volatile (
+        "cld\n"
+        "rep insl"
+        : "+D"(buffer), "+c"(count)
+        : "d"(port)
+        : "memory"
+    );
+}
 
 #endif

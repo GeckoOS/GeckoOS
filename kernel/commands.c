@@ -1,4 +1,5 @@
 #include "drivers/apic/lapic.h"
+#include "drivers/drives.h"
 #include "drivers/hid/keyboard.h"
 #include "drivers/hid/keyboard_scancode.h"
 #include "drivers/input.h"
@@ -43,8 +44,9 @@ static Command commands[] = {
     { "uptime",       cmd_uptime       },
     { "meminfo",      cmd_meminfo      },
     { "lspci",        cmd_lspci        },
+    {"showdrives",    cmd_showdrives   },
     // --- keyboard ---
-    { "setkeyswe",    cmd_setkeyswe     },
+    { "setkeyswe",    cmd_setkeyswe    },
     { "setkeyus",     cmd_setkeyus     },
     { "setkeyuk",     cmd_setkeyuk     },
     // --- timer / power ---
@@ -116,13 +118,14 @@ static const char* help_lines[] = {
     "echo        - Print text to screen",
     "write       - Append text to an existing file",
     "runelf      - Runs an ELF file",
+    "showdrivers - Show the connected drives",
     "",
     "--- Network ---",
     "ping <ip>   - Ping an IP address (e.g. ping 10.0.2.2)",
     "",
     "--- USB ---",
     "lsusb       - Show connected supported devices (UHCI Controllers)",
-    "showusb     - Show connected supported devices info (USB Descriptor)",
+    "showusbs    - Show connected supported devices info (USB Descriptor)",
     0
 };
 
@@ -865,6 +868,14 @@ static void cmd_show_usb_info(uint8_t color) {
         printf("  USB Configuration max power: %dmA\n", config.bMaxPower / 2);
 
         HIDKeyboardInit(&USBDevices[i]); // TODO: Add compatibility to other type of devices
+    }
+}
+
+static void cmd_showdrives(uint8_t color) {
+    printf("\n");
+    for (int i = 0; i < 32; i++) {
+        if (!drives[i].sector_size) continue;
+        printf("Drive %d - %s\n", i, drives[i].name);
     }
 }
 

@@ -1,12 +1,13 @@
 //Ember2819, with light assistance from Claude Sonnet 4.6 on debugging.
 // All code was manually reviewed and tested.
+#include "terminal/printf.h"
 #include <drivers/ata.h>
 #include <ports.h>
 #include <stdint.h>
 #include <drivers/drives.h>
 #include <terminal/terminal.h>
 
-static int drive_present[4] = {0, 0};
+static int drive_present[4] = {0, 0, 0, 0};
 
 static void ata_delay(void) {
     for (int i = 0; i < 4; i++) inb(ATA_PRIMARY_CTRL);
@@ -94,26 +95,19 @@ static int ata_check_drive(int drive, char bus) /* BUS == 0: Depending on the dr
     kdrive.sector_size = 512;
     kdrive.read  = (kdrive_read_sectors)ata_kdrive_read_sectors;
     kdrive.write = (kdrive_write_sectors)ata_kdrive_write_sectors;
-    drive_present[drive] = 1;
-    register_kdrive(&kdrive);
+    npf_snprintf_(kdrive.name, 64, "ATA Drive %d", drive + bus);
+    drive_present[drive + bus] = 1;
+    register_kdrive(kdrive);
 
     return 1;
 }
 
-int ata_init(void) {
-    struct kdrive_t slave = {};
-    slave.userdata1   = 1;
-    slave.sector_size = 512;
-    slave.read  = (kdrive_read_sectors)ata_kdrive_read_sectors;
-    slave.write = (kdrive_write_sectors)ata_kdrive_write_sectors;
-    drive_present[1] = 1;
-    register_kdrive(&slave);
-    int found = 0;
-    ata_check_drive(ATA_DRIVE_MASTER, 0);
-    ata_check_drive(ATA_DRIVE_SLAVE, 0);
-    if (drive_present[0]) found++;
-    if (drive_present[1]) found++;
-    return found;
+void ata_init(void) {
+    for (uint8_t i = 0; i < 2; i++) {
+        for (uint8_t y = 0; y < 2; y++) {
+            ata_check_drive(y, i);
+        }
+    }
 }
 
 int ata_drive_present(int drive) {

@@ -214,7 +214,7 @@ static int parse_madt_entries(struct acpi_madt *madt)
          case 2: { // ISO (Interrupt Source Override)
             struct madt_iso *iso = (struct madt_iso *)ptr;
             // printf("ISO: bus=%u, irq=%u, gsi=%u, flags=0x%x\n",
-            //      iso->bus,iso->irq, iso->gsi, iso->flags);
+            //       iso->bus,iso->irq, iso->gsi, iso->flags);
             isos[isos_num++] = *(struct madt_iso *)ptr;
             break;
         }
@@ -390,7 +390,7 @@ int acpi_init()
                                 } */
                                 break;
                             case 0x54445344:
-                                    printf("HEREEE\n");
+                                    printf("HEREEE\n"); // there is no dsdt in qemu
                                 break;
                             default:
                                 break;
