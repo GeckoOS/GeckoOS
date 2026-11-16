@@ -2,8 +2,8 @@
 CC      = clang
 AS      = nasm
 # For MacOS compatability, it must use ld.lld, not just ld.
-LD := $(shell command -v ld.lld 2>/dev/null || command -v ld 2>/dev/null)
-OBJCOPY := $(shell command -v llvm-objcopy 2>/dev/null || command -v objcopy 2>/dev/null)
+LD := $(shell command -v x86_64-elf-ld 2>/dev/null || command -v ld.lld 2>/dev/null || command -v ld 2>/dev/null)
+OBJCOPY := $(shell command -v llvm-objcopy 2>/dev/null || command -v objcopy 2>/dev/null || command -v x86_64-elf-objcopy 2>/dev/null)
 GRUB_MKRESCUE := $(shell command -v x86_64-elf-grub-mkrescue 2>/dev/null || command -v grub-mkrescue 2>/dev/null)
 
 ifeq ($(LD),)
