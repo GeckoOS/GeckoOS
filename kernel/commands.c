@@ -1283,7 +1283,7 @@ static void cmd_dumpelf(char *args, uint8_t color) {
     }
 
     Buffer_t file = readfile(filename);
-    dumpelf(file.bytes, file.size);
+    dumpelf(file.bytes);
     kfree(file.bytes);
 }
 
