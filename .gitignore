@@ -1,3 +1,4 @@
+.DS_Store
 *.o
 *.img
 *.bin
@@ -8,4 +9,7 @@
 .vscode
 grub-modules/i386-pc
 build/
-Elf
+Assets/test_elf/test_elf
+server/files
+__pycache__/
+*.pyc
