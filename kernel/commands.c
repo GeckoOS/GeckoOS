@@ -109,8 +109,6 @@ static Command commands[] = {
 
 static int num_commands = sizeof(commands) / sizeof(commands[0]);
 
-struct drive_fs_t *fs;
-
 static const char* help_lines[] = {
     "--- System ---",
     "help         - Show this message",
